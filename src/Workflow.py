@@ -1,5 +1,7 @@
+import json
 import streamlit as st
 from src.workflow.WorkflowManager import WorkflowManager
+from src.workflow.ParameterManager import ParameterManager
 
 # for result section:
 from pathlib import Path
@@ -16,7 +18,7 @@ class Workflow(WorkflowManager):
         super().__init__("TOPP Workflow", st.session_state["workspace"])
 
     def upload(self) -> None:
-        t = st.tabs(["MS data"])
+        t = st.tabs(["MS data", "FASTA database"])
         with t[0]:
             # Use the upload method from StreamlitUI to handle mzML file uploads.
             self.ui.upload_widget(
@@ -25,99 +27,206 @@ class Workflow(WorkflowManager):
                 file_types="mzML",
                 fallback=[str(f) for f in Path("example-data", "mzML").glob("*.mzML")],
             )
+        with t[1]:
+            self.ui.upload_widget(
+                key="fasta-file",
+                name="FASTA database",
+                file_types="fasta",
+                fallback=[str(f) for f in Path("example-data", "fasta").glob("*.fasta")],
+            )
 
     @st.fragment
     def configure(self) -> None:
         # Allow users to select mzML files for the analysis.
         self.ui.select_input_file("mzML-files", multiple=True)
+        self.ui.select_input_file("fasta-file", multiple=False)
 
         # Create tabs for different analysis steps.
         t = st.tabs(
-            ["**Feature Detection**", "**Feature Linking**", "**Python Custom Tool**"]
+            ["**Search Parameters**", "**Filter Parameters**"]
         )
         with t[0]:
-            # Parameters for FeatureFinderMetabo TOPP tool.
+            # Load Presets
+            presets_path = Path("src", "assets", "comet_presets.json")
+            with open(presets_path, "r") as f:
+                presets = json.load(f)
+            
+            st.markdown("##### Load Presets")
+            cols = st.columns(len(presets))
+            for i, (name, params) in enumerate(presets.items()):
+                if cols[i].button(name, use_container_width=True):
+                    # Update params
+                    if "CometAdapter" not in self.params:
+                        self.params["CometAdapter"] = {}
+                    
+                    tool_prefix = f"{self.parameter_manager.topp_param_prefix}CometAdapter:1:"
+                    
+                    for k, v in params.items():
+                        # Update self.params
+                        self.params["CometAdapter"][k] = v
+                        # Update st.session_state
+                        full_key = f"{tool_prefix}{k}"
+                        st.session_state[full_key] = v
+                        
+                    self.parameter_manager.save_parameters()
+                    st.rerun()
+
+            # Parameters for CometAdapter
             self.ui.input_TOPP(
-                "FeatureFinderMetabo",
-                custom_defaults={"algorithm:common:noise_threshold_int": 1000.0},
+                "CometAdapter",
+                exclude_parameters=["binary_modifications","missed_cleavages"]
             )
         with t[1]:
-            # Parameters for MetaboliteAdductDecharger TOPP tool.
-            self.ui.input_TOPP("FeatureLinkerUnlabeledKD")
-        with t[2]:
-            # A single checkbox widget for workflow logic.
-            self.ui.input_widget("run-python-script", False, "Run custom Python script")
-            # Generate input widgets for a custom Python tool, located at src/python-tools.
-            # Parameters are specified within the file in the DEFAULTS dictionary.
-            self.ui.input_python("example")
+            # Parameters for IDFilter TOPP tool.
+            st.markdown("#### ID Filter Settings")
+            st.caption("Configure FDR filter threshold (score:peptide) and Peptide length threshold (precursor:length).")
+            self.ui.input_TOPP(
+                "IDFilter",
+                include_parameters=["score:peptide", "precursor:length"],
+                custom_defaults={
+                    "score:peptide": 0.01,
+                    "precursor:length": "8:12"
+                },
+                display_tool_name=False
+            )
+            
 
     def execution(self) -> None:
-        # Any parameter checks, here simply checking if mzML files are selected
-        if not self.params["mzML-files"]:
-            self.logger.log("ERROR: No mzML files selected.")
-            return
+        # Reload parameters to ensure we have the latest from the UI
+        self.params = self.parameter_manager.get_parameters_from_json()
 
-        # Get mzML files with FileManager
+        # Any parameter checks
+        #if "mzML-files" not in self.params or not self.params["mzML-files"]:
+        #    self.logger.log("ERROR: No mzML files selected.")
+        #    return
+        #if "fasta-file" not in self.params or not self.params["fasta-file"]:
+        #    self.logger.log("ERROR: No FASTA file selected.")
+        #    return
+
+        # 1. Input Data
         in_mzML = self.file_manager.get_files(self.params["mzML-files"])
-
-        # Log any messages.
+        in_fasta = self.file_manager.get_files(self.params["fasta-file"])
+        
         self.logger.log(f"Number of input mzML files: {len(in_mzML)}")
 
-        # Prepare output files for feature detection.
-        out_ffm = self.file_manager.get_files(
-            in_mzML, "featureXML", "feature-detection"
+        # 2. Decoy Generation
+        # Use first FASTA file for decoy generation
+        self.logger.log("Generating decoys...")
+        out_decoy_db = self.file_manager.get_files(
+            in_fasta[0:1], 
+            set_file_type="fasta", 
+            set_results_dir="decoy_database", 
         )
-
-        # Run FeatureFinderMetabo tool with input and output files.
-        self.logger.log("Detecting features...")
         self.executor.run_topp(
-            "FeatureFinderMetabo", input_output={"in": in_mzML, "out": out_ffm}
+            "DecoyDatabase",
+            input_output={"in": in_fasta[0:1], "out": out_decoy_db},
+            custom_params={
+                "decoy_string": "DECOY_", 
+                "decoy_string_position": "prefix",
+                "enzyme": "no cleavage"
+            }
         )
 
-        # Prepare input and output files for feature linking
-        in_fl = self.file_manager.get_files(out_ffm, collect=True)
-        out_fl = self.file_manager.get_files(
-            "feature_matrix.consensusXML", set_results_dir="feature-linking"
+        # 3. Search Engine (Comet)
+        # Input: Link mzML files with the (single) Target-Decoy DB
+        self.logger.log("Running CometAdapter...")
+        out_comet = self.file_manager.get_files(
+            in_mzML, set_file_type="idXML", set_results_dir="comet"
         )
-
-        # Run FeatureLinkerUnlabaeledKD with all feature maps passed at once
-        self.logger.log("Linking features...")
         self.executor.run_topp(
-            "FeatureLinkerUnlabeledKD", input_output={"in": in_fl, "out": out_fl}
+            "CometAdapter",
+            input_output={"in": in_mzML, "out": out_comet, "database": out_decoy_db},
+            #custom_params={
+            #    "missed_cleavages": "0",
+            #}
         )
-        self.logger.log("Exporting consensus features to pandas DataFrame...")
-        self.executor.run_python(
-            "export_consensus_feature_df", input_output={"in": out_fl[0]}
+
+        # 4. PeptideIndexer
+        self.logger.log("Running PeptideIndexer...")
+        out_indexer = self.file_manager.get_files(
+            out_comet, set_file_type="idXML", set_results_dir="peptide_indexer"
         )
-        # Check if adduct detection should be run.
-        if self.params["run-python-script"]:
-            # Example for a custom Python tool, which is located in src/python-tools.
-            self.executor.run_python("example", {"in": in_mzML})
+        self.executor.run_topp(
+            "PeptideIndexer",
+            input_output={"in": out_comet, "out": out_indexer, "fasta": out_decoy_db},
+            custom_params={
+                "decoy_string": "DECOY",
+                "enzyme:specificity": "none"
+            }
+        )
+
+        # 5. IDMerger
+        self.logger.log("Merging idXML files...")
+        out_merged = self.file_manager.get_files(
+            "merged.idXML", 
+            set_results_dir="id_merger", 
+        )
+        # Pass list of files as nested list to indicate merging (all inputs to one command)
+        self.executor.run_topp(
+            "IDMerger",
+            input_output={"in": [out_indexer], "out": out_merged},
+            custom_params={
+                "annotate_file_origin": "true",
+                "merge_proteins_add_PSMs": ""
+            }
+        )
+
+        # 6. PSMFeatureExtractor
+        self.logger.log("Running PSMFeatureExtractor...")
+        out_psm = self.file_manager.get_files(
+            out_merged, 
+            set_file_type="idXML", 
+            set_results_dir="psm_feature_extractor", 
+        )
+        self.executor.run_topp(
+            "PSMFeatureExtractor",
+            input_output={"in": out_merged, "out": out_psm}
+        )
+
+        # 7. PercolatorAdapter (Rescoring)
+        self.logger.log("Running PercolatorAdapter...")
+        out_percolator = self.file_manager.get_files(
+            out_psm, 
+            set_file_type="idXML", 
+            set_results_dir="percolator", 
+        )
+        self.executor.run_topp(
+            "PercolatorAdapter",
+            input_output={"in": out_psm, "out": out_percolator},
+            custom_params={
+                "subset_max_train": "0",
+                "seed": 4711,
+                "trainFDR": 0.05,
+                "testFDR": 0.05,
+                "enzyme": "no_enzyme",
+                "post_processing_tdc": ""
+            }
+        )
+
+        # 8. IDFilter
+        self.logger.log("Running IDFilter...")
+        out_filtered = self.file_manager.get_files(
+            out_percolator, 
+            set_file_type="idXML", 
+            set_results_dir="id_filter", 
+        )
+        self.executor.run_topp(
+            "IDFilter",
+            input_output={"in": out_percolator, "out": out_filtered},
+            custom_params={
+                "delete_unreferenced_peptide_hits": "",
+                "remove_decoys": ""
+            }
+        )
 
     @st.fragment
     def results(self) -> None:
-        @st.fragment
-        def show_consensus_features():
-            df = pd.read_csv(file, sep="\t", index_col=0)
-            st.metric("number of consensus features", df.shape[0])
-            c1, c2 = st.columns(2)
-            rows = c1.dataframe(df, selection_mode="multi-row", on_select="rerun")[
-                "selection"
-            ]["rows"]
-            if rows:
-                df = df.iloc[rows, 4:]
-                fig = px.bar(df, barmode="group", labels={"value": "intensity"})
-                with c2:
-                    show_fig(fig, "consensus-feature-intensities")
-            else:
-                st.info(
-                    "💡 Select one ore more rows in the table to show a barplot with intensities."
-                )
-
         file = Path(
-            self.workflow_dir, "results", "feature-linking", "feature_matrix.tsv"
+            self.workflow_dir, "results", "id_filter", "idXML"
         )
         if file.exists():
-            show_consensus_features()
+            st.success("Analysis complete! Filtered identifications found.")
+            st.write(f"Results saved at: {file}")
+            # Placeholder for future visualization
         else:
-            st.warning("No consensus feature file found. Please run workflow first.")
+            st.warning("No results found. Please run workflow first.")

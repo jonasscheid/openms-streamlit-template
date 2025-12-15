@@ -1,0 +1,98 @@
+{
+	"timsTOF Class I": {
+		"instrument": "high_res",
+		"digest_mass_range": "800:2500",
+		"activation_method": "CID",
+		"precursor_charge": "1:4",
+		"precursor_error_units": "ppm",
+		"max_variable_mods_in_peptide": 3,
+		"precursor_mass_tolerance": 20.0,
+		"fragment_mass_tolerance": 0.02,
+		"fragment_bin_offset": 0.0,
+		"enzyme": "unspecific cleavage"
+	},
+	"timsTOF Class II": {
+		"instrument": "high_res",
+		"digest_mass_range": "800:5000",
+		"activation_method": "CID",
+		"precursor_charge": "1:5",
+		"precursor_error_units": "ppm",
+		"max_variable_mods_in_peptide": 5,
+		"precursor_mass_tolerance": 20.0,
+		"fragment_mass_tolerance": 0.02,
+		"fragment_bin_offset": 0.0,
+		"enzyme": "unspecific cleavage"
+	},
+	"Orbitrap Fusion Lumos Class I": {
+		"instrument": "high_res",
+		"digest_mass_range": "800:2500",
+		"activation_method": "HCD",
+		"precursor_charge": "2:3",
+		"precursor_error_units": "ppm",
+		"max_variable_mods_in_peptide": 3,
+		"precursor_mass_tolerance": 5.0,
+		"fragment_mass_tolerance": 0.02,
+		"fragment_bin_offset": 0.0,
+		"enzyme": "unspecific cleavage"
+	},
+	"Orbitrap Fusion Lumos Class II": {
+		"instrument": "high_res",
+		"digest_mass_range": "800:5000",
+		"activation_method": "HCD",
+		"precursor_charge": "2:5",
+		"precursor_error_units": "ppm",
+		"max_variable_mods_in_peptide": 5,
+		"precursor_mass_tolerance": 5.0,
+		"fragment_mass_tolerance": 0.02,
+		"fragment_bin_offset": 0.0,
+		"enzyme": "unspecific cleavage"
+	},
+	"Q Exactive Orbitrap Class I": {
+		"instrument": "high_res",
+		"digest_mass_range": "800:2500",
+		"activation_method": "HCD",
+		"precursor_charge": "2:3",
+		"precursor_error_units": "ppm",
+		"max_variable_mods_in_peptide": 3,
+		"precursor_mass_tolerance": 5.0,
+		"fragment_mass_tolerance": 0.02,
+		"fragment_bin_offset": 0.0,
+		"enzyme": "unspecific cleavage"
+	},
+	"Q Exactive Orbitrap Class II": {
+		"instrument": "high_res",
+		"digest_mass_range": "800:5000",
+		"activation_method": "HCD",
+		"precursor_charge": "2:5",
+		"precursor_error_units": "ppm",
+		"max_variable_mods_in_peptide": 5,
+		"precursor_mass_tolerance": 5.0,
+		"fragment_mass_tolerance": 0.02,
+		"fragment_bin_offset": 0.0,
+		"enzyme": "unspecific cleavage"
+	},
+	"LTQ Orbitrap XL Class I": {
+		"instrument": "low_res",
+		"digest_mass_range": "800:2500",
+		"activation_method": "CID",
+		"precursor_charge": "2:3",
+		"precursor_error_units": "ppm",
+		"max_variable_mods_in_peptide": 3,
+		"precursor_mass_tolerance": 5.0,
+		"fragment_mass_tolerance": 0.50025,
+		"fragment_bin_offset": 0.4,
+		"enzyme": "unspecific cleavage"
+	},
+	"LTQ Orbitrap XL Class II": {
+		"instrument": "low_res",
+		"digest_mass_range": "800:5000",
+		"activation_method": "CID",
+		"precursor_charge": "2:5",
+		"precursor_error_units": "ppm",
+		"max_variable_mods_in_peptide": 5,
+		"precursor_mass_tolerance": 5.0,
+		"fragment_mass_tolerance": 0.50025,
+		"fragment_bin_offset": 0.4,
+		"enzyme": "unspecific cleavage"
+	}
+}
