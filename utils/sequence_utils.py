@@ -101,7 +101,7 @@ def calculate_fragment_masses(
 
         tsg.setParameters(params)
 
-        # Generate spectrum for charge 1 (neutral masses)
+        # Generate spectrum for charge 1, then convert to neutral masses
         spec = MSSpectrum()
         tsg.getSpectrum(spec, aa_seq, 1, 1)
 
@@ -123,7 +123,9 @@ def calculate_fragment_masses(
         # Parse peaks and organize by ion type and position
         for i in range(spec.size()):
             peak = spec[i]
-            mz = peak.getMZ()
+            # Convert singly-charged m/z to neutral mass
+            mz_charge1 = peak.getMZ()
+            neutral_mass = mz_charge1 - PROTON_MASS
             ion_name = ion_names[i] if i < len(ion_names) else ""
 
             if not ion_name:
@@ -153,7 +155,7 @@ def calculate_fragment_masses(
                 idx = ion_number - 1
                 key = f'fragment_masses_{ion_type}'
                 if idx < len(result[key]):
-                    result[key][idx].append(mz)
+                    result[key][idx].append(neutral_mass)
 
         return result
 
@@ -270,28 +272,35 @@ def compute_peak_annotations(
 
                 # Generate m/z for each charge state
                 for charge in range(1, precursor_charge + 1):
-                    theoretical_mz = (neutral_mass + charge * PROTON_MASS) / charge
+                    for suffix, shift in [
+                        ('', 0),
+                        ('-H2O', -18.01),
+                        ('-NH3', -17.03),
+                        ('+H', PROTON_MASS),
+                        ('-H', -PROTON_MASS),
+                    ]:
+                        theoretical_mz = (neutral_mass + shift + charge * PROTON_MASS) / charge
 
-                    # Calculate tolerance in Da
-                    if tolerance_ppm:
-                        tol_da = theoretical_mz * tolerance / 1e6
-                    else:
-                        tol_da = tolerance
+                        # Calculate tolerance in Da
+                        if tolerance_ppm:
+                            tol_da = theoretical_mz * tolerance / 1e6
+                        else:
+                            tol_da = tolerance
 
-                    # Find matching peaks
-                    for idx, obs_mz in enumerate(observed_mz):
-                        mass_diff = abs(obs_mz - theoretical_mz)
-                        if mass_diff <= tol_da:
-                            peak_id = peak_ids[idx]
-                            charge_str = to_superscript(charge) + "⁺"
-                            label = f"{ion_type}{ion_number}{charge_str}"
+                        # Find matching peaks
+                        for idx, obs_mz in enumerate(observed_mz):
+                            mass_diff = abs(obs_mz - theoretical_mz)
+                            if mass_diff <= tol_da:
+                                peak_id = peak_ids[idx]
+                                charge_str = to_superscript(charge) + "⁺"
+                                label = f"{ion_type}{ion_number}{charge_str}{suffix}"
 
-                            if peak_id not in annotations_dict:
-                                annotations_dict[peak_id] = label
-                            else:
-                                existing = annotations_dict[peak_id]
-                                if label not in existing:
-                                    annotations_dict[peak_id] = f"{existing}/{label}"
+                                if peak_id not in annotations_dict:
+                                    annotations_dict[peak_id] = label
+                                else:
+                                    existing = annotations_dict[peak_id]
+                                    if label not in existing:
+                                        annotations_dict[peak_id] = f"{existing}/{label}"
 
     # Create highlight and annotation columns
     highlights = [peak_id in annotations_dict for peak_id in peak_ids]
