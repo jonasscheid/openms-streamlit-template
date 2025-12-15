@@ -149,8 +149,7 @@ def render_description():
     st.markdown(
         """
         MHCquant is an open-source pipeline for **highly sensitive HLA peptide identification** from
-        mass spectrometry data. By integrating peptide property predictors **DeepLC** and **MS2PIP**
-        via the **MS2Rescore** framework, MHCquant improves peptide identifications by up to **27%**
+        mass spectrometry data. MHCquant improves peptide identifications by up to **27%**
         compared to conventional approaches, particularly enriching **low-abundant peptides** critical
         for **tumor antigen discovery** and **cancer immunotherapy**.
         """
@@ -166,9 +165,8 @@ def render_workflow_overview():
     steps = [
         ("1", "Upload", "MS data (mzML) and protein database (FASTA)", "content/topp_workflow_file_upload.py"),
         ("2", "Search", "Database search with Comet for peptide identification", "content/topp_workflow_parameter.py"),
-        ("3", "Rescore", "MS2Rescore with DeepLC + MS2PIP, FDR via Percolator", "content/topp_workflow_parameter.py"),
-        ("4", "Visualize", "Interactive exploration of identified HLA peptides", "content/topp_workflow_results.py"),
-        ("5", "Export", "Download results in TSV and mzTab formats", "content/download_section.py"),
+        ("3", "Visualize", "Interactive exploration of identified HLA peptides", "content/topp_workflow_results.py"),
+        ("4", "Export", "Download results in TSV and mzTab formats", "content/download_section.py"),
     ]
 
     for col, (num, title, desc, page) in zip(cols, steps):
@@ -260,7 +258,7 @@ def render_features():
             """
             <div class="feature-card">
                 <h4>Up to 27% More Identifications</h4>
-                <p>DeepLC and MS2PIP integration via MS2Rescore dramatically boosts identification rates across diverse MS platforms.</p>
+                <p>MHCquant dramatically boosts identification rates across diverse MS platforms.</p>
             </div>
             """,
             unsafe_allow_html=True,
