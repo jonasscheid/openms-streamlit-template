@@ -39,7 +39,6 @@ selected_idxml = idxml_files[0]
 # Parse idXML and cache identifications to parquet
 idxml_hash = hashlib.md5(selected_idxml.name.encode()).hexdigest()[:8]
 id_parquet_path = cache_dir / f"identifications_{idxml_hash}.parquet"
-spectra_data_path = cache_dir / f"spectra_data_{idxml_hash}.txt"
 
 
 ##### PREPROCESSING #####
@@ -60,13 +59,11 @@ if 'parsed' not in st.session_state:
     filename_to_index = {v: k for k, v in index_to_filename.items()}
 
     # Parse idXML file
-    id_df, spectra_data = parse_idxml(str(selected_idxml), filename_to_index)
+    id_df, _ = parse_idxml(str(selected_idxml), filename_to_index)
 
     # Cache identifications to parquet
     id_df.write_parquet(id_parquet_path)
 
-    # Cache spectra_data metadata
-    spectra_data_path.write_text("\n".join(spectra_data))
     st.session_state['parsed'] = True
 
 
@@ -82,19 +79,10 @@ file_mapping_df = pl.read_parquet(file_mapping_parquet_path)
 index_to_filename = {row["file_index"]: row["filename"] for row in file_mapping_df.iter_rows(named=True)}
 filename_to_index = {v: k for k, v in index_to_filename.items()}
 
-# Load spectra_data list
-spectra_data = spectra_data_path.read_text().strip().split("\n") if spectra_data_path.exists() else []
-
 # Check for empty data
 if id_df.height == 0:
     st.warning("No identifications found in the selected file.")
     st.stop()
-
-# Display summary metrics
-col1, col2, col3 = st.columns(3)
-col1.metric("Identifications", id_df.height)
-col2.metric("Source Files", len(spectra_data))
-col3.metric("Linked", id_df.filter(pl.col("file_index") >= 0).height)
 
 # Create StateManager for cross-component linking
 state_manager = StateManager(session_key="id_viewer_state")
@@ -147,10 +135,6 @@ if selected_file_index is not None and selected_scan_id is not None:
 
     if selected_id.height > 0:
         row = selected_id.row(0, named=True)
-        st.info(f"**Selected:** {row['sequence']} (z={row['charge']}, score={row['score']:.4f}) | File: `{filename}` | Scan: {selected_scan_id}")
-
-        st.markdown("---")
-        st.subheader(f"Peptide: {row['sequence']}")
 
         # Filter spectrum peaks from cached spectra parquet
         spectrum_peaks = spectra_df.filter(
@@ -177,6 +161,22 @@ if selected_file_index is not None and selected_scan_id is not None:
         # Unique key per sequence
         seq_hash = hashlib.md5(row["sequence"].encode()).hexdigest()[:8]
 
+                # Display SequenceView for fragment coverage visualization
+        sequence_view = SequenceView(
+            cache_id="sequence_view",
+            sequence=row["sequence"],
+            observed_masses=observed_masses,
+            peak_ids=peak_ids,
+            precursor_mass=0.0,
+            cache_path=str(viewer_cache_dir),
+            deconvolved=False,
+            precursor_charge=row["charge"],
+            interactivity={"peak": "peak_id"},
+            _precomputed_sequence_data=sequence_data,
+        )
+
+        sequence_view(key=f"sequence_view_{seq_hash}", state_manager=state_manager, height=500)
+
         # Display annotated spectrum with fragment ion labels
         if spectrum_peaks.height > 0:
             annotated_peaks = compute_peak_annotations(
@@ -187,8 +187,6 @@ if selected_file_index is not None and selected_scan_id is not None:
                 tolerance_ppm=True,
                 ion_types=['b', 'y'],
             )
-
-            st.subheader("Annotated Spectrum")
 
             annotated_plot = LinePlot(
                 cache_id=f"annotated_spectrum_{seq_hash}",
@@ -210,19 +208,3 @@ if selected_file_index is not None and selected_scan_id is not None:
             )
 
             annotated_plot(key=f"annotated_plot_{seq_hash}", state_manager=state_manager, height=400)
-
-        # Display SequenceView for fragment coverage visualization
-        sequence_view = SequenceView(
-            cache_id="sequence_view",
-            sequence=row["sequence"],
-            observed_masses=observed_masses,
-            peak_ids=peak_ids,
-            precursor_mass=0.0,
-            cache_path=str(viewer_cache_dir),
-            deconvolved=False,
-            precursor_charge=row["charge"],
-            interactivity={"peak": "peak_id"},
-            _precomputed_sequence_data=sequence_data,
-        )
-
-        sequence_view(key=f"sequence_view_{seq_hash}", state_manager=state_manager, height=500)
