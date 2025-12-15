@@ -14,7 +14,7 @@ if __name__ == '__main__':
             st.Page(Path("content", "quickstart.py"), title="Quickstart", icon="👋"),
             # st.Page(Path("content", "documentation.py"), title="Documentation", icon="📖"),
         ],
-        "TOPP Workflow Framework": [
+        "MHCquant": [
             st.Page(Path("content", "topp_workflow_file_upload.py"), title="File Upload", icon="📁"),
             st.Page(Path("content", "topp_workflow_parameter.py"), title="Configure", icon="⚙️"),
             st.Page(Path("content", "topp_workflow_execution.py"), title="Run", icon="🚀"),
