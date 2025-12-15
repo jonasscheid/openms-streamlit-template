@@ -21,9 +21,6 @@ if __name__ == '__main__':
             st.Page(Path("content", "topp_workflow_results.py"), title="Results", icon="📊"),
             st.Page(Path("content", "download_section.py"), title="Download Results", icon="⬇️"),
         ],
-        "Viewer": [
-            st.Page(Path("content", "id_viewer.py"), title="ID Viewer", icon="🔬"),
-        ],
     }
 
     pg = st.navigation(pages)

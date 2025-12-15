@@ -10,7 +10,7 @@ page_setup()
 
 # Define output folder here; all subfolders will be handled as downloadable
 # directories
-output_folder = 'mzML-workflow-results'
+output_folder = Path('topp-workflow', 'results')
 
 
 # Generate full path

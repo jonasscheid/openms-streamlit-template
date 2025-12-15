@@ -4,10 +4,15 @@ from src.workflow.WorkflowManager import WorkflowManager
 from src.workflow.ParameterManager import ParameterManager
 
 # for result section:
+import hashlib
 from pathlib import Path
-import pandas as pd
-import plotly.express as px
-from src.common.common import show_fig
+import polars as pl
+
+from utils.parse_idxml import parse_idxml
+from utils.build_spectra_cache import build_spectra_cache
+from utils.sequence_utils import build_sequence_data, compute_peak_annotations
+
+from openms_insight import Table, LinePlot, SequenceView, StateManager
 
 
 class Workflow(WorkflowManager):
@@ -219,14 +224,159 @@ class Workflow(WorkflowManager):
             }
         )
 
+        # Postprocessing
+        self.logger.log("Postprocessing...")
+        # Create cache directories
+        cache_dir = self.file_manager.workflow_dir / '.cache'
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        viewer_cache_dir = cache_dir / "viewer"
+        viewer_cache_dir.mkdir(parents=True, exist_ok=True)
+        self.logger.log(self.params['mzML-files'])
+        self.logger.log(Path(in_mzML[0]).parent)
+        # Build spectra cache from mzML files
+        index_to_filename = build_spectra_cache(
+            Path(in_mzML[0]).parent, cache_dir / "spectra.parquet"
+        )
+        filename_to_index = {v: k for k, v in index_to_filename.items()}
+
+        # Parse idXML file
+        id_df, _ = parse_idxml(out_filtered[0], filename_to_index)
+
+        # Cache identifications to parquet
+        id_df.write_parquet(cache_dir / 'identifications.parquet')
+
+
+
     @st.fragment
     def results(self) -> None:
-        file = Path(
-            self.workflow_dir, "results", "id_filter", "idXML"
+        cache_dir = self.file_manager.workflow_dir / '.cache'
+        viewer_cache_dir = cache_dir / "viewer"
+
+        # Load data from parquet caches
+        id_df = pl.read_parquet(cache_dir / 'identifications.parquet')
+        spectra_df = pl.read_parquet(cache_dir / "spectra.parquet")
+
+        # Check for empty data
+        if id_df.height == 0:
+            st.warning("No identifications found in the selected file.")
+            st.stop()
+
+        # Create StateManager for cross-component linking
+        state_manager = StateManager(session_key="id_viewer_state")
+
+        # Create identification table component
+        id_table = Table(
+            cache_id="id_table",
+            data=id_df.lazy(),
+            cache_path=str(viewer_cache_dir),
+            interactivity={"file": "file_index", "spectrum": "scan_id"},
+            column_definitions=[
+                {"field": "id_idx", "title": "ID", "sorter": "number", "width": 50},
+                {"field": "sequence", "title": "Sequence", "headerTooltip": True},
+                {"field": "charge", "title": "z", "sorter": "number", "hozAlign": "right", "width": 40},
+                {"field": "score", "title": "Score", "sorter": "number", "hozAlign": "right",
+                "formatter": "money", "formatterParams": {"precision": 4, "symbol": ""}},
+                {"field": "protein_accession", "title": "Protein", "headerTooltip": True},
+                {"field": "filename", "title": "File"},
+                {"field": "file_index", "title": "File Idx", "sorter": "number", "width": 60},
+                {"field": "scan_id", "title": "Scan", "sorter": "number", "width": 60},
+            ],
+            index_field="id_idx",
+            title="Identifications",
+            default_row=0,
         )
-        if file.exists():
-            st.success("Analysis complete! Filtered identifications found.")
-            st.write(f"Results saved at: {file}")
-            # Placeholder for future visualization
-        else:
-            st.warning("No results found. Please run workflow first.")
+
+        # Display identification table
+        st.subheader("Peptide Identifications")
+        id_table(key="id_table", state_manager=state_manager, height=500)
+
+        # Get current selection state
+        current_state = state_manager.get_state_for_vue()
+        selected_file_index = current_state.get("file")
+        selected_scan_id = current_state.get("spectrum")
+
+        # Display selected identification details
+        if selected_file_index is not None and selected_scan_id is not None:
+            
+            # Find selected identification
+            selected_id = id_df.filter(
+                (pl.col("file_index") == selected_file_index) &
+                (pl.col("scan_id") == selected_scan_id)
+            )
+
+            if selected_id.height > 0:
+                row = selected_id.row(0, named=True)
+
+                # Filter spectrum peaks from cached spectra parquet
+                spectrum_peaks = spectra_df.filter(
+                    (pl.col("file_index") == selected_file_index) &
+                    (pl.col("scan_id") == selected_scan_id)
+                )
+
+                # Extract observed masses and peak IDs
+                if spectrum_peaks.height > 0:
+                    observed_masses = spectrum_peaks["mass"].to_list()
+                    peak_ids = spectrum_peaks["peak_id"].to_list()
+                else:
+                    observed_masses = []
+                    peak_ids = []
+
+                # Build sequence data with theoretical fragment masses
+                sequence_data = build_sequence_data(
+                    row["sequence"],
+                    charge=row["charge"],
+                    fragment_tolerance=20.0,
+                    fragment_tolerance_ppm=True,
+                )
+
+                # Unique key per sequence
+                seq_hash = hashlib.md5(row["sequence"].encode()).hexdigest()[:8]
+
+                        # Display SequenceView for fragment coverage visualization
+                sequence_view = SequenceView(
+                    cache_id="sequence_view",
+                    sequence=row["sequence"],
+                    observed_masses=observed_masses,
+                    peak_ids=peak_ids,
+                    precursor_mass=0.0,
+                    cache_path=str(viewer_cache_dir),
+                    deconvolved=False,
+                    precursor_charge=row["charge"],
+                    interactivity={"peak": "peak_id"},
+                    _precomputed_sequence_data=sequence_data,
+                )
+
+                sequence_view(key=f"sequence_view_{seq_hash}", state_manager=state_manager, height=500)
+
+                # Display annotated spectrum with fragment ion labels
+                if spectrum_peaks.height > 0:
+                    annotated_peaks = compute_peak_annotations(
+                        spectrum_peaks,
+                        sequence_data,
+                        precursor_charge=row["charge"],
+                        tolerance=20.0,
+                        tolerance_ppm=True,
+                        ion_types=['b', 'y'],
+                    )
+
+                    annotated_plot = LinePlot(
+                        cache_id=f"annotated_spectrum_{seq_hash}",
+                        data=annotated_peaks.lazy(),
+                        cache_path=str(viewer_cache_dir),
+                        x_column="mass",
+                        y_column="intensity",
+                        title=f"Fragment Ion Annotations: {row['sequence']}",
+                        x_label="m/z",
+                        y_label="Intensity",
+                        interactivity={"peak": "peak_id"},
+                        highlight_column="highlight",
+                        annotation_column="annotation",
+                        styling={
+                            "unhighlightedColor": "#4A90D9",
+                            "selectedColor": "#F3A712",
+                            "highlightedColor": "#E74C3C",
+                        },
+                    )
+
+                    annotated_plot(key=f"annotated_plot_{seq_hash}", state_manager=state_manager, height=400)
+

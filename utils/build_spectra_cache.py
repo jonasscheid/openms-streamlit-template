@@ -135,33 +135,6 @@ def build_spectra_cache(
     return index_to_filename
 
 
-def build_file_mapping_parquet(
-    index_to_filename: Dict[int, str],
-    output_path: Path,
-) -> pl.DataFrame:
-    """Build file mapping parquet for reference.
-
-    Args:
-        index_to_filename: Dict mapping file_index to filename
-        output_path: Path to write the mapping parquet
-
-    Returns:
-        DataFrame with file_index and filename columns
-    """
-    df = pl.DataFrame({
-        "file_index": list(index_to_filename.keys()),
-        "filename": list(index_to_filename.values()),
-    }).cast({
-        "file_index": pl.Int32,
-        "filename": pl.Utf8,
-    }).sort("file_index")
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(output_path)
-
-    return df
-
-
 if __name__ == "__main__":
     # Build cache for example data
     mzml_dir = Path("example-data/mzML")
