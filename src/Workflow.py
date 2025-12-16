@@ -226,21 +226,22 @@ class Workflow(WorkflowManager):
 
         # Postprocessing
         self.logger.log("Postprocessing...")
+
         # Create cache directories
-        cache_dir = self.file_manager.workflow_dir / '.cache'
+        cache_dir = self.file_manager.workflow_dir / 'results' / '.cache'
         cache_dir.mkdir(parents=True, exist_ok=True)
         viewer_cache_dir = cache_dir / "viewer"
         viewer_cache_dir.mkdir(parents=True, exist_ok=True)
-        self.logger.log(self.params['mzML-files'])
-        self.logger.log(Path(in_mzML[0]).parent)
-        # Build spectra cache from mzML files
-        index_to_filename = build_spectra_cache(
-            Path(in_mzML[0]).parent, cache_dir / "spectra.parquet"
-        )
-        filename_to_index = {v: k for k, v in index_to_filename.items()}
 
         # Parse idXML file
-        id_df, _ = parse_idxml(out_filtered[0], filename_to_index)
+        id_df, filename_to_index = parse_idxml(out_filtered[0])
+
+        # Build spectra cache from mzML files
+        spectra_df, filename_to_index = build_spectra_cache(
+            Path(in_mzML[0]).parent, filename_to_index
+        )
+        spectra_df.write_parquet(cache_dir / "spectra.parquet")
+
 
         # Cache identifications to parquet
         id_df.write_parquet(cache_dir / 'identifications.parquet')
@@ -249,7 +250,7 @@ class Workflow(WorkflowManager):
 
     @st.fragment
     def results(self) -> None:
-        cache_dir = self.file_manager.workflow_dir / '.cache'
+        cache_dir = self.file_manager.workflow_dir / 'results' / '.cache'
         viewer_cache_dir = cache_dir / "viewer"
 
         # Load data from parquet caches
@@ -258,7 +259,7 @@ class Workflow(WorkflowManager):
 
         # Check for empty data
         if id_df.height == 0:
-            st.warning("No identifications found in the selected file.")
+            st.warning("No identifications found.")
             st.stop()
 
         # Create StateManager for cross-component linking
@@ -294,6 +295,7 @@ class Workflow(WorkflowManager):
         current_state = state_manager.get_state_for_vue()
         selected_file_index = current_state.get("file")
         selected_scan_id = current_state.get("spectrum")
+
 
         # Display selected identification details
         if selected_file_index is not None and selected_scan_id is not None:
