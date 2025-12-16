@@ -20,7 +20,6 @@ if __name__ == '__main__':
             st.Page(Path("content", "topp_workflow_execution.py"), title="Run", icon="🚀"),
             st.Page(Path("content", "topp_workflow_results.py"), title="Results", icon="📊"),
             st.Page(Path("content", "download_section.py"), title="Download Results", icon="⬇️"),
-
         ],
     }
 
