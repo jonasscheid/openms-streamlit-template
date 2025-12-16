@@ -171,16 +171,77 @@ class Workflow(WorkflowManager):
             }
         )
 
+        # 5.5 MS2Rescore
+        self.logger.log("Running ms2rescore...")
+        in_idxml = out_merged[0]
+        mzml_dir = str(Path(in_mzML[0]).parent)
+        
+        # Prepare content for ms2rescore
+        out_ms2rescore = self.file_manager.get_files(
+            "merged_ms2rescore.idXML", 
+            set_results_dir="ms2rescore", 
+        )
+        out_ms2rescore_path = out_ms2rescore[0]
+        
+        # Determine output stem (remove .idXML extension for ms2rescore argument)
+        out_stem = str(Path(out_ms2rescore_path).with_suffix(""))
+        
+        # Calculate tolerance (default 0.02 -> 0.04)
+        frag_tol = float(self.params.get("CometAdapter", {}).get("fragment_mass_tolerance", 0.02))
+        ms2_tol = 2 * frag_tol
+
+        # Use the wrapper script in src/python-tools
+        wrapper_script = Path("src", "python-tools", "ms2rescore_wrapper.py")
+        
+        cmd = [
+            "python", str(wrapper_script),
+            "--psm_file", str(in_idxml),
+            "--spectrum_path", mzml_dir,
+            "--output_path", out_stem + ".idXML", # Wrapper writes to this file
+            "--processes", "1",
+            "--ms2_tolerance", str(ms2_tol),
+            "--ms2pip_model", "Immuno-HCD",
+            "--feature_generators", "deeplc,ms2pip",
+            "--rescoring_engine", "percolator"
+        ]
+        
+        self.executor.run_command(cmd)
+
+        # Parse feature names
+        # The wrapper doesn't explicitly write feature names to a separate file, 
+        # but ms2rescore library might. 
+        # If not, we might need to assume a name or extract from output idXML?
+        # mhcquant expects '*_feature_names.tsv'. 
+        # Let's hope ms2rescore writes it.
+        feature_file = Path(out_stem + "_feature_names.tsv")
+        extra_features = []
+        if feature_file.exists():
+            with open(feature_file, "r") as f:
+                # mhcquant approach: feature names one per line or TSV?
+                # Check lines
+                lines = f.readlines()
+                for line in lines:
+                    parts = line.strip().split("\t")
+                    if len(parts) >= 2:
+                        # feature_generator (0), feature_name (1)
+                        if "psm_file" not in parts[0]: 
+                             extra_features.append(parts[1])
+        else:
+            self.logger.log(f"Warning: Feature file {feature_file} not found. Proceeding without extra features.")
+
         # 6. PSMFeatureExtractor
         self.logger.log("Running PSMFeatureExtractor...")
         out_psm = self.file_manager.get_files(
-            out_merged, 
+            out_ms2rescore, 
             set_file_type="idXML", 
             set_results_dir="psm_feature_extractor", 
         )
         self.executor.run_topp(
             "PSMFeatureExtractor",
-            input_output={"in": out_merged, "out": out_psm}
+            input_output={"in": out_ms2rescore, "out": out_psm},
+            custom_params={
+                "extra": extra_features
+            }
         )
 
         # 7. PercolatorAdapter (Rescoring)
