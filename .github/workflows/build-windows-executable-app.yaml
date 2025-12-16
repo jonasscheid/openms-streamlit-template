@@ -1,9 +1,9 @@
 name: Build executable for Windows
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main" , "mhcquant"]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main" , "mhcquant"]
   release:
     types: [created]
   workflow_dispatch:
@@ -13,14 +13,14 @@ permissions:
   contents: write
 
 env:
-  OPENMS_VERSION: 3.2.0 
+  OPENMS_VERSION: 3.5.0
   PYTHON_VERSION: 3.11.0
   # Name of the installer
   APP_NAME: OpenMS-StreamlitTemplateApp
   # Define unique GUID for UpgradeCode
   APP_UpgradeCode: "8d28e8c7-45dc-446c-b889-99a6aea2f1a5"
-  # Define needed TOPP tools here
-  TOPP_TOOLS: "FeatureFinderMetabo FeatureLinkerUnlabeledKD SiriusExport"
+  # Define needed TOPP tools here (MHCquant workflow)
+  TOPP_TOOLS: "DecoyDatabase CometAdapter PeptideIndexer IDMerger PSMFeatureExtractor PercolatorAdapter IDFilter"
 
 jobs:
   build-openms:
@@ -122,7 +122,7 @@ jobs:
           # add third-party binaries to PATH
           # use flat THIRDPARTY structure
           mkdir -p _thirdparty
-          cp -R OpenMS/THIRDPARTY/Windows/64bit/* _thirdparty/
+          cp -R OpenMS/THIRDPARTY/Windows/x86_64/* _thirdparty/
           cp -R OpenMS/THIRDPARTY/All/* _thirdparty/
           # add third-party binaries to PATH
           for thirdpartytool in ${{ github.workspace }}/_thirdparty/*
@@ -205,12 +205,13 @@ jobs:
         name: openms-package
         path: openms-package
 
-    - name: Extract bin and share from package
+    - name: Extract bin, share and THIRDPARTY from package
       run: |
         cd openms-package
         unzip "*.zip" -d .
         cp -r openms-package/bin ../openms-bin
         cp -r openms-package/share ../share
+        cp -r openms-package/THIRDPARTY ../thirdparty
 
     - name: Set up Python (regular distribution)
       uses: actions/setup-python@v5
@@ -295,6 +296,10 @@ jobs:
         foreach ($file in $files) {
           Copy-Item "openms-bin/${file}.exe" -Destination "streamlit_exe/${file}.exe"
         }
+
+        # Copy thirdparty executables required for MHCquant workflow
+        cp thirdparty/Comet/comet.exe streamlit_exe/comet.exe
+        cp thirdparty/Percolator/percolator.exe streamlit_exe/percolator.exe
 
     - name: Generate Readme.txt
       shell: bash
