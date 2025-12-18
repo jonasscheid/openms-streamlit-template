@@ -205,7 +205,6 @@ jobs:
         unzip "*.zip" -d .
         cp -r openms-package/bin ../openms-bin
         cp -r openms-package/share ../share
-        cp -r openms-package/THIRDPARTY ../thirdparty
 
     - name: Set up Python (regular distribution)
       uses: actions/setup-python@v5
@@ -293,10 +292,6 @@ jobs:
         foreach ($file in $files) {
           Copy-Item "openms-bin/${file}.exe" -Destination "streamlit_exe/${file}.exe"
         }
-
-        # Copy thirdparty executables required for MHCquant workflow
-        cp thirdparty/Comet/comet.exe streamlit_exe/comet.exe
-        cp thirdparty/Percolator/percolator.exe streamlit_exe/percolator.exe
 
     - name: Generate Readme.txt
       shell: bash
