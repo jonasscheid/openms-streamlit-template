@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Tuple, List, Dict, Optional
 
 import polars as pl
-from pyopenms import IdXMLFile
+from pyopenms import IdXMLFile,  PeptideIdentificationList
 
 
 def parse_spectrum_reference(spectrum_ref: str) -> int:
@@ -88,8 +88,9 @@ def parse_idxml(
         - spectra_data list (source mzML filenames)
     """
     protein_ids = []
-    peptide_ids = []
+    peptide_ids = PeptideIdentificationList()
     IdXMLFile().load(str(idxml_path), protein_ids, peptide_ids)
+    peptide_ids = [peptide_ids.at(i) for i in range(peptide_ids.size())]
 
     # Get spectra_data from first ProteinIdentification
     spectra_data = []
@@ -101,6 +102,8 @@ def parse_idxml(
             for s in sd
         ]
         filename_to_index = {name : i for i, name in enumerate(spectra_data)}
+
+    
 
     # Extract identification data
     id_data = []
