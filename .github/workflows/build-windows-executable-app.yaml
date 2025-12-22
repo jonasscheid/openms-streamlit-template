@@ -16,7 +16,7 @@ env:
   OPENMS_VERSION: 3.5.0
   PYTHON_VERSION: 3.11.0
   # Name of the installer
-  APP_NAME: OpenMS-StreamlitTemplateApp
+  APP_NAME: MHCQuant
   # Define unique GUID for UpgradeCode
   APP_UpgradeCode: "8d28e8c7-45dc-446c-b889-99a6aea2f1a5"
   # Define needed TOPP tools here (MHCquant workflow)
