@@ -2,9 +2,9 @@ name: Test workflow functions
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "mhcquant" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "mhcquant" ]
 
 jobs:
   build:

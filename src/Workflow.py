@@ -1,16 +1,13 @@
 import json
 import streamlit as st
 from src.workflow.WorkflowManager import WorkflowManager
-from src.workflow.ParameterManager import ParameterManager
 
 # for result section:
-import hashlib
 from pathlib import Path
 import polars as pl
 
 from utils.parse_idxml import parse_idxml
 from utils.build_spectra_cache import build_spectra_cache
-from utils.sequence_utils import build_sequence_data, compute_peak_annotations
 
 from openms_insight import Table, LinePlot, SequenceView, StateManager
 
@@ -321,9 +318,8 @@ class Workflow(WorkflowManager):
             st.warning("Please run a workflow to display results.")
             st.stop()
 
-        # Load data from parquet caches
+        # Load identification data
         id_df = pl.read_parquet(cache_dir / 'identifications.parquet')
-        spectra_df = pl.read_parquet(cache_dir / "spectra.parquet")
 
         # Check for empty data
         if id_df.height == 0:
@@ -338,115 +334,84 @@ class Workflow(WorkflowManager):
             cache_id="id_table",
             data=id_df.lazy(),
             cache_path=str(viewer_cache_dir),
-            interactivity={"file": "file_index", "spectrum": "scan_id"},
+            interactivity={"file": "file_index", "spectrum": "scan_id", "identification": "id_idx"},
             column_definitions=[
-                {"field": "id_idx", "title": "ID", "sorter": "number", "width": 50},
                 {"field": "sequence", "title": "Sequence", "headerTooltip": True},
-                {"field": "charge", "title": "z", "sorter": "number", "hozAlign": "right", "width": 40},
+                {"field": "charge", "title": "Charge", "sorter": "number", "hozAlign": "right"},
                 {"field": "score", "title": "Score", "sorter": "number", "hozAlign": "right",
                 "formatter": "money", "formatterParams": {"precision": 4, "symbol": ""}},
                 {"field": "protein_accession", "title": "Protein", "headerTooltip": True},
                 {"field": "filename", "title": "File"},
-                {"field": "file_index", "title": "File Idx", "sorter": "number", "width": 60},
-                {"field": "scan_id", "title": "Scan", "sorter": "number", "width": 60},
             ],
+            initial_sort=[{'column': 'score', 'dir': 'desc'}],
             index_field="id_idx",
             title="Identifications",
             default_row=0,
         )
 
+        # Create SequenceView with new interface
+        # - Uses sequence_data from id_df (filtered by identification selection)
+        # - Uses peaks_data from spectra.parquet (filtered by file + spectrum selection)
+        # - Fragment matching happens in Vue, annotations returned to Python
+        comet_params = self.parameter_manager.get_topp_parameters("CometAdapter")
+        frag_tol = comet_params.get("fragment_mass_tolerance")
+        absolute_error = comet_params.get("fragment_error_units") == 'Da'
+
+        sequence_view = SequenceView(
+            cache_id="sequence_view",
+            sequence_data=id_df.lazy().select(["id_idx", "sequence", "charge"]).rename({
+                "id_idx": "sequence_id",
+                "charge": "precursor_charge",
+            }),
+            peaks_data=pl.scan_parquet(cache_dir / "spectra.parquet"),
+            filters={
+                "identification": "sequence_id",  # Filter sequence by selected identification
+                "file": "file_index",              # Filter peaks by selected file
+                "spectrum": "scan_id",             # Filter peaks by selected spectrum
+            },
+            interactivity={"peak": "peak_id"},
+            deconvolved=False,
+            annotation_config={
+                "ion_types": ["b", "y"],
+                "neutral_losses": True,
+                "proton_loss_addition": True,
+                "tolerance": frag_tol,
+                "tolerance_ppm": not absolute_error,
+            },
+            cache_path=str(viewer_cache_dir),
+        )
+
+        # Create linked LinePlot using factory method
+        # Automatically gets annotations from SequenceView
+        annotated_plot = LinePlot.from_sequence_view(
+            sequence_view,
+            cache_id="annotated_spectrum",
+            cache_path=str(viewer_cache_dir),
+            title="Annotated Spectrum",
+            styling={
+                "unhighlightedColor": "#CCCCCC",
+                "highlightColor": "#E74C3C",
+                "selectedColor": "#F3A712",
+            },
+        )
+
+        id_table = Table(cache_id="id_table", cache_path=str(viewer_cache_dir))
+        sequence_view = SequenceView(cache_id="sequence_view", cache_path=str(viewer_cache_dir))
+        annotated_plot = LinePlot(cache_id="annotated_spectrum", cache_path=str(viewer_cache_dir))
+
         # Display identification table
         st.subheader("Peptide Identifications")
-        id_table(key="id_table", state_manager=state_manager, height=500)
+        id_table(key="id_table", state_manager=state_manager, height=400)
 
-        # Get current selection state
-        current_state = state_manager.get_state_for_vue()
-        selected_file_index = current_state.get("file")
-        selected_scan_id = current_state.get("spectrum")
+        sv_result = sequence_view(key="sequence_view", state_manager=state_manager, height=450)
 
+        if sv_result.annotations is not None and sv_result.annotations.height > 0:
+            st.caption(f"Matched {sv_result.annotations.height} fragments")
 
-        # Display selected identification details
-        if selected_file_index is not None and selected_scan_id is not None:
-            
-            # Find selected identification
-            selected_id = id_df.filter(
-                (pl.col("file_index") == selected_file_index) &
-                (pl.col("scan_id") == selected_scan_id)
-            )
-
-            if selected_id.height > 0:
-                row = selected_id.row(0, named=True)
-
-                # Filter spectrum peaks from cached spectra parquet
-                spectrum_peaks = spectra_df.filter(
-                    (pl.col("file_index") == selected_file_index) &
-                    (pl.col("scan_id") == selected_scan_id)
-                )
-
-                # Extract observed masses and peak IDs
-                if spectrum_peaks.height > 0:
-                    observed_masses = spectrum_peaks["mass"].to_list()
-                    peak_ids = spectrum_peaks["peak_id"].to_list()
-                else:
-                    observed_masses = []
-                    peak_ids = []
-
-                # Build sequence data with theoretical fragment masses
-                sequence_data = build_sequence_data(
-                    row["sequence"],
-                    charge=row["charge"],
-                    fragment_tolerance=20.0,
-                    fragment_tolerance_ppm=True,
-                )
-
-                # Unique key per sequence
-                seq_hash = hashlib.md5(row["sequence"].encode()).hexdigest()[:8]
-
-                        # Display SequenceView for fragment coverage visualization
-                sequence_view = SequenceView(
-                    cache_id="sequence_view",
-                    sequence=row["sequence"],
-                    observed_masses=observed_masses,
-                    peak_ids=peak_ids,
-                    precursor_mass=0.0,
-                    cache_path=str(viewer_cache_dir),
-                    deconvolved=False,
-                    precursor_charge=row["charge"],
-                    interactivity={"peak": "peak_id"},
-                    _precomputed_sequence_data=sequence_data,
-                )
-
-                sequence_view(key=f"sequence_view_{seq_hash}", state_manager=state_manager, height=500)
-
-                # Display annotated spectrum with fragment ion labels
-                if spectrum_peaks.height > 0:
-                    annotated_peaks = compute_peak_annotations(
-                        spectrum_peaks,
-                        sequence_data,
-                        precursor_charge=row["charge"],
-                        tolerance=20.0,
-                        tolerance_ppm=True,
-                        ion_types=['b', 'y'],
-                    )
-
-                    annotated_plot = LinePlot(
-                        cache_id=f"annotated_spectrum_{seq_hash}",
-                        data=annotated_peaks.lazy(),
-                        cache_path=str(viewer_cache_dir),
-                        x_column="mass",
-                        y_column="intensity",
-                        title=f"Fragment Ion Annotations: {row['sequence']}",
-                        x_label="m/z",
-                        y_label="Intensity",
-                        interactivity={"peak": "peak_id"},
-                        highlight_column="highlight",
-                        annotation_column="annotation",
-                        styling={
-                            "unhighlightedColor": "#4A90D9",
-                            "selectedColor": "#F3A712",
-                            "highlightedColor": "#E74C3C",
-                        },
-                    )
-
-                    annotated_plot(key=f"annotated_plot_{seq_hash}", state_manager=state_manager, height=400)
+        annotated_plot(
+            key="annotated_spectrum",
+            state_manager=state_manager,
+            height=450,
+            sequence_view_key="sequence_view",
+        )
 
