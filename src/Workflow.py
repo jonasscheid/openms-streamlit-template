@@ -306,31 +306,8 @@ class Workflow(WorkflowManager):
         # Cache identifications to parquet
         id_df.write_parquet(cache_dir / 'identifications.parquet')
 
-
-
-    @st.fragment
-    def results(self) -> None:
-        cache_dir = self.file_manager.workflow_dir / 'results' / '.cache'
-        viewer_cache_dir = cache_dir / "viewer"
-
-        # Check for empty data
-        if not (cache_dir / 'identifications.parquet').exists():
-            st.warning("Please run a workflow to display results.")
-            st.stop()
-
-        # Load identification data
-        id_df = pl.read_parquet(cache_dir / 'identifications.parquet')
-
-        # Check for empty data
-        if id_df.height == 0:
-            st.warning("No identifications found.")
-            st.stop()
-
-        # Create StateManager for cross-component linking
-        state_manager = StateManager(session_key="id_viewer_state")
-
         # Create identification table component
-        id_table = Table(
+        Table(
             cache_id="id_table",
             data=id_df.lazy(),
             cache_path=str(viewer_cache_dir),
@@ -383,7 +360,7 @@ class Workflow(WorkflowManager):
 
         # Create linked LinePlot using factory method
         # Automatically gets annotations from SequenceView
-        annotated_plot = LinePlot.from_sequence_view(
+        LinePlot.from_sequence_view(
             sequence_view,
             cache_id="annotated_spectrum",
             cache_path=str(viewer_cache_dir),
@@ -395,6 +372,29 @@ class Workflow(WorkflowManager):
             },
         )
 
+
+    @st.fragment
+    def results(self) -> None:
+        cache_dir = self.file_manager.workflow_dir / 'results' / '.cache'
+        viewer_cache_dir = cache_dir / "viewer"
+
+        # Check for empty data
+        if not (cache_dir / 'identifications.parquet').exists():
+            st.warning("Please run a workflow to display results.")
+            st.stop()
+
+        # Load identification data
+        id_df = pl.read_parquet(cache_dir / 'identifications.parquet')
+
+        # Check for empty data
+        if id_df.height == 0:
+            st.warning("No identifications found.")
+            st.stop()
+
+        # Create StateManager for cross-component linking
+        state_manager = StateManager(session_key="id_viewer_state")
+
+        # Load components from cache
         id_table = Table(cache_id="id_table", cache_path=str(viewer_cache_dir))
         sequence_view = SequenceView(cache_id="sequence_view", cache_path=str(viewer_cache_dir))
         annotated_plot = LinePlot(cache_id="annotated_spectrum", cache_path=str(viewer_cache_dir))
