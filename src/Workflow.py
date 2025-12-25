@@ -287,11 +287,9 @@ class Workflow(WorkflowManager):
         # Postprocessing
         self.logger.log("Postprocessing...")
 
-        # Create cache directories
+        # Create cache directory
         cache_dir = self.file_manager.workflow_dir / 'results' / '.cache'
         cache_dir.mkdir(parents=True, exist_ok=True)
-        viewer_cache_dir = cache_dir / "viewer"
-        viewer_cache_dir.mkdir(parents=True, exist_ok=True)
 
         # Parse idXML file
         id_df, filename_to_index = parse_idxml(out_filtered[0])
@@ -300,17 +298,12 @@ class Workflow(WorkflowManager):
         spectra_df, filename_to_index = build_spectra_cache(
             Path(in_mzML[0]).parent, filename_to_index
         )
-        spectra_df.write_parquet(cache_dir / "spectra.parquet")
-
-
-        # Cache identifications to parquet
-        id_df.write_parquet(cache_dir / 'identifications.parquet')
 
         # Create identification table component
         Table(
             cache_id="id_table",
             data=id_df.lazy(),
-            cache_path=str(viewer_cache_dir),
+            cache_path=str(cache_dir),
             interactivity={"file": "file_index", "spectrum": "scan_id", "identification": "id_idx"},
             column_definitions=[
                 {"field": "sequence", "title": "Sequence", "headerTooltip": True},
@@ -326,9 +319,9 @@ class Workflow(WorkflowManager):
             default_row=0,
         )
 
-        # Create SequenceView with new interface
+        # Create SequenceView
         # - Uses sequence_data from id_df (filtered by identification selection)
-        # - Uses peaks_data from spectra.parquet (filtered by file + spectrum selection)
+        # - Uses peaks_data from spectra_df (filtered by file + spectrum selection)
         # - Fragment matching happens in Vue, annotations returned to Python
         comet_params = self.parameter_manager.get_topp_parameters("CometAdapter")
         frag_tol = comet_params.get("fragment_mass_tolerance")
@@ -340,7 +333,7 @@ class Workflow(WorkflowManager):
                 "id_idx": "sequence_id",
                 "charge": "precursor_charge",
             }),
-            peaks_data=pl.scan_parquet(cache_dir / "spectra.parquet"),
+            peaks_data=spectra_df.lazy(),
             filters={
                 "identification": "sequence_id",  # Filter sequence by selected identification
                 "file": "file_index",              # Filter peaks by selected file
@@ -355,7 +348,7 @@ class Workflow(WorkflowManager):
                 "tolerance": frag_tol,
                 "tolerance_ppm": not absolute_error,
             },
-            cache_path=str(viewer_cache_dir),
+            cache_path=str(cache_dir),
         )
 
         # Create linked LinePlot using factory method
@@ -363,7 +356,7 @@ class Workflow(WorkflowManager):
         LinePlot.from_sequence_view(
             sequence_view,
             cache_id="annotated_spectrum",
-            cache_path=str(viewer_cache_dir),
+            cache_path=str(cache_dir),
             title="Annotated Spectrum",
             styling={
                 "unhighlightedColor": "#CCCCCC",
@@ -376,28 +369,19 @@ class Workflow(WorkflowManager):
     @st.fragment
     def results(self) -> None:
         cache_dir = self.file_manager.workflow_dir / 'results' / '.cache'
-        viewer_cache_dir = cache_dir / "viewer"
 
-        # Check for empty data
-        if not (cache_dir / 'identifications.parquet').exists():
+        # Check if workflow has been run
+        if not (cache_dir / 'id_table').is_dir():
             st.warning("Please run a workflow to display results.")
-            st.stop()
-
-        # Load identification data
-        id_df = pl.read_parquet(cache_dir / 'identifications.parquet')
-
-        # Check for empty data
-        if id_df.height == 0:
-            st.warning("No identifications found.")
             st.stop()
 
         # Create StateManager for cross-component linking
         state_manager = StateManager(session_key="id_viewer_state")
 
         # Load components from cache
-        id_table = Table(cache_id="id_table", cache_path=str(viewer_cache_dir))
-        sequence_view = SequenceView(cache_id="sequence_view", cache_path=str(viewer_cache_dir))
-        annotated_plot = LinePlot(cache_id="annotated_spectrum", cache_path=str(viewer_cache_dir))
+        id_table = Table(cache_id="id_table", cache_path=str(cache_dir))
+        sequence_view = SequenceView(cache_id="sequence_view", cache_path=str(cache_dir))
+        annotated_plot = LinePlot(cache_id="annotated_spectrum", cache_path=str(cache_dir))
 
         # Display identification table
         st.subheader("Peptide Identifications")
