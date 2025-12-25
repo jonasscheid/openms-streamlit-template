@@ -20,9 +20,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest
-    - name: Running test cases
+    - name: Running unit tests
       run: |
-        pytest test.py
+        pytest tests/ -v --ignore=tests/test_gui.py -m "not slow"
     - name: Running GUI tests
       run: |
-        pytest test_gui.py
+        pytest tests/test_gui.py -v
