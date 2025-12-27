@@ -76,6 +76,10 @@ def workflow_workspace(tmp_path):
     ini_dir = workflow_dir / "ini"
     ini_dir.mkdir(parents=True)
 
+    # Create pids directory (normally created by start_workflow, needed for direct workflow_process call)
+    pids_dir = workflow_dir / "pids"
+    pids_dir.mkdir(parents=True)
+
     return {
         "workspace": workspace,
         "workflow_dir": workflow_dir,
