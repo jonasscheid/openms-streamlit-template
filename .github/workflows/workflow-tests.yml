@@ -22,7 +22,7 @@ jobs:
         pip install pytest
     - name: Running unit tests
       run: |
-        pytest tests/ -v --ignore=tests/test_gui.py -m "not slow"
+        pytest tests/ -v --ignore=tests/test_gui.py --ignore=tests/test_workflow_integration.py
     - name: Running GUI tests
       run: |
         pytest tests/test_gui.py -v
