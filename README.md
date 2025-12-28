@@ -73,6 +73,18 @@ The pipeline performs:
 5. **FDR Rescoring**: Statistical validation with Percolator
 6. **Filtering**: Apply score and length filters
 
+## Interactive Visualizations
+
+MHCquant features rich interactive visualizations powered by [**openms-insight**](https://github.com/OpenMS/openms-insight), a Python library for mass spectrometry data exploration:
+
+- **Identification Table**: Sortable, filterable table of all peptide identifications with synchronized selection across views
+- **Annotated Spectrum Viewer**: Interactive mirror plots showing experimental vs. theoretical spectra with fragment ion annotations
+- **Sequence Coverage View**: Visual representation of identified peptides mapped to protein sequences with modification highlighting
+
+All visualization components are interconnected - selecting a peptide in the table automatically updates the spectrum and sequence views, enabling seamless data exploration.
+
+openms-insight is designed for integration into Streamlit applications and provides high-performance rendering with intelligent caching for large datasets. Check out the [openms-insight repository](https://github.com/OpenMS/openms-insight) to build your own MS data visualization apps.
+
 ## Running Tests
 
 ```bash
