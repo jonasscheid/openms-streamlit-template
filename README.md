@@ -85,12 +85,11 @@ pytest tests/test_workflow_integration.py -v -m integration
 
 ## Citation
 
-If you use MHCquant in your research, please cite:
+If you use MHCquant-web in your research, please cite:
 
 Scheld JS, Bichmann L, Nelde A, et al. "MHCquant2 refines immunopeptidomics tumor antigen discovery." *Genome Biology* 2025, 26, 63. [https://doi.org/10.1186/s13059-025-03763-8](https://doi.org/10.1186/s13059-025-03763-8)
+Mueller TD, Siraj A, et al. OpenMS WebApps: Building User-Friendly Solutions for MS Analysis. *Journal of Proteome Research* (2025). [https://doi.org/10.1021/acs.jproteome.4c00872](https://doi.org/10.1021/acs.jproteome.4c00872).
 
 ## References
-
 - Pfeuffer J, Bielow C, Wein S, et al. OpenMS 3 enables reproducible analysis of large-scale mass spectrometry data. *Nat Methods* 21, 365-367 (2024). [https://doi.org/10.1038/s41592-024-02197-7](https://doi.org/10.1038/s41592-024-02197-7)
 
-- Muller TD, Siraj A, et al. OpenMS WebApps: Building User-Friendly Solutions for MS Analysis. *Journal of Proteome Research* (2025). [https://doi.org/10.1021/acs.jproteome.4c00872](https://doi.org/10.1021/acs.jproteome.4c00872)
