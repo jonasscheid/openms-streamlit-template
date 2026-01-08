@@ -1,23 +1,14 @@
 """
 Tests for the TOPP workflow parameter page.
 
-This module verifies that the TOPP workflow parameter page correctly 
+This module verifies that the TOPP workflow parameter page correctly
 displays parameter values, handles different parameter types,
 organizes parameters into sections, and properly toggles advanced parameters.
+
+Note: These tests use mocked parameter objects and don't require pyopenms.
 """
-import os
-import sys
 import pytest
 from unittest.mock import patch, MagicMock
-
-# Add project root to path for imports using a named constant
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(PROJECT_ROOT)
-
-# Create mock for pyopenms to avoid dependency on actual OpenMS installation
-mock_pyopenms = MagicMock()
-mock_pyopenms.__version__ = "2.9.1"  # Mock version for testing
-sys.modules['pyopenms'] = mock_pyopenms
 
 @pytest.fixture
 def mock_streamlit():
@@ -45,12 +36,6 @@ def mock_streamlit():
             'text_input': mock_text_input,
             'markdown': mock_markdown
         }
-
-
-def test_mock_pyopenms():
-    """Verify that pyopenms mock is working correctly."""
-    import pyopenms
-    assert hasattr(pyopenms, '__version__')
 
 
 def test_topp_parameter_correctness():

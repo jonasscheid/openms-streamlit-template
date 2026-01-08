@@ -1,134 +1,108 @@
-# OpenMS streamlit template 
+# MHCquant Web App
 
-[![Open Template!](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://abi-services.cs.uni-tuebingen.de/streamlit-template/)
+[![Open App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://openms.org/mhcquantweb)
+[![Tests](https://github.com/jonasscheid/openms-streamlit-template/actions/workflows/workflow-tests.yml/badge.svg)](https://github.com/jonasscheid/openms-streamlit-template/actions/workflows/workflow-tests.yml)
+[![Integration Tests](https://github.com/jonasscheid/openms-streamlit-template/actions/workflows/ci.yml/badge.svg)](https://github.com/jonasscheid/openms-streamlit-template/actions/workflows/ci.yml)
 
-This repository contains a template app for OpenMS workflows in a web application using the **streamlit** framework. It serves as a foundation for apps ranging from simple workflows with **pyOpenMS** to complex workflows utilizing **OpenMS TOPP tools** with parallel execution. It includes solutions for handling user data and parameters in workspaces as well as deployment with docker-compose.
+A web application for automated and reproducible immunopeptidomics data analysis. MHCquant identifies and quantifies MHC-eluted peptides from mass spectrometry raw data, designed for cancer vaccine research and immunotherapy development.
+
+Built on the [OpenMS WebApp Template](https://github.com/OpenMS/streamlit-template) framework.
 
 ## Features
 
-- Workspaces for user data with unique shareable IDs
-- Persistent parameters and input files within a workspace
-- local and online mode
-- Captcha control
-- Packaged executables for Windows
-- framework for workflows with OpenMS TOPP tools
-- Deployment [with docker-compose](https://github.com/OpenMS/streamlit-deployment)
+- **Peptide Identification**: Database search with Comet search engine
+- **FDR Control**: Statistical validation with Percolator using target-decoy approach
+- **Interactive Results Viewer**: Explore identifications with spectrum annotation and sequence coverage views
+- **Workspaces**: Persistent user sessions with shareable workspace IDs
+- **Preconfigured Presets**: Optimized parameters for different instrument types and fragmentation methods
 
-## 🔗 Try the Online Demo
+## Try the Online Demo
 
-Explore the hosted version here:  👉 [Live App](https://abi-services.cs.uni-tuebingen.de/streamlit-template/)
+Explore the hosted version: [Live App](https://openms.org/mhcquantweb)
 
-## 💻 Run Locally
+## Run Locally
 
-To run the app locally:
+### Prerequisites
+
+- Python 3.10+
+- [OpenMS TOPP tools](https://openms.readthedocs.io/en/latest/about/installation.html) (for full workflow functionality)
+
+### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/OpenMS/streamlit-template.git
-   cd streamlit-template
+   git clone https://github.com/jonasscheid/openms-streamlit-template.git
+   cd openms-streamlit-template
    ```
 
-2. **Install dependencies**
-   
-   Make sure you can run ```pip``` commands.
-   
-   Install all dependencies with:
+2. **Install Python dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Launch the app**
+3. **Launch the app**
    ```bash
    streamlit run app.py
    ```
 
-> ⚠️ Note: The local version offers limited functionality. Features that depend on OpenMS TOPP tools are only available out of the box in the Docker setup. For the local version [OpenMS Command Line Tools](https://openms.readthedocs.io/en/latest/about/installation.html) must be installed separately.
+> Note: The local version requires OpenMS TOPP tools to be installed separately for the full MHCquant workflow. Use the Docker setup for a complete out-of-the-box experience.
 
+## Build with Docker
 
-## 🐳 Build with Docker
+The recommended way to run MHCquant with all dependencies:
 
-This repository contains two Dockerfiles.
+1. **Install Docker** from the [official guide](https://docs.docker.com/engine/install/)
 
-1. `Dockerfile`: This Dockerfile builds all dependencies for the app including Python packages and the OpenMS TOPP tools. Recommended for more complex workflows where you want to use the OpenMS TOPP tools for instance with the **TOPP Workflow Framework**.
-2. `Dockerfile_simple`: This Dockerfile builds only the Python packages. Recommended for simple apps using pyOpenMS only.
-
-1. **Install Docker**
-
-   Install Docker from the [official Docker installation guide](https://docs.docker.com/engine/install/)  
-   
-   <details>
-   <summary>Click to expand</summary>
-   
+2. **Clone and build**
    ```bash
-   # Remove older Docker versions (if any)
-   for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do sudo apt-get remove -y $pkg; done
-   ```
-   
-   </details>
-
-2. **Test Docker**
-   
-   Verify that Docker is working.
-   ```bash
-   docker run hello-world
-   ```
-   When running this command, you should see a hello world message from Docker.
-   
-3. **Clone the repository**
-   ```bash
-   git clone https://github.com/OpenMS/streamlit-template.git
-   cd streamlit-template
-   ```
-   
-4. **Specify GitHub token (to download Windows executables).**
-   
-   Create a temporary `.env` file with your Github token.
-   
-   It should contain only one line:
-   `GITHUB_TOKEN=<your-github-token>`
-
-   ℹ️ **Note:** This step is not strictly required, but skipping it will remove the option to download executables from the WebApp.
-   
-3. **Build & Launch the App**
-
-   To build and start the containers.
-   From the project root directory:
-   
-   ```bash
+   git clone https://github.com/jonasscheid/openms-streamlit-template.git
+   cd openms-streamlit-template
    docker-compose up -d --build
    ```
-     At the end, you should see this:
-      ```
-      [+] Running 2/2
-       ✔ openms-streamlit-template            Built      
-       ✔ Container openms-streamlit-template  Started  
-      ```
-      
-      To make sure server started successfully, run `docker compose ps`. You should see `Up` status:
-      ```
-      CONTAINER ID   IMAGE                       COMMAND                  CREATED         STATUS                 PORTS                                           NAMES
-      4abe0603e521   openms_streamlit_template   "/app/entrypoint.sh …"   7 minutes ago   Up 7 minutes           0.0.0.0:8501->8501/tcp, :::8501->8501/tcp       openms-streamlit-template
-      ```
-   
-      To map the port to default streamlit port `8501` and launch.
-      
-      ```
-      docker run -p 8505:8501 openms_streamlit_template
-      ```
 
-## Documentation
+3. **Access the app** at http://localhost:8501
 
-Documentation for **users** and **developers** is included as pages in [this template app](https://abi-services.cs.uni-tuebingen.de/streamlit-template/), indicated by the 📖 icon.
+## MHCquant Workflow
+
+The pipeline performs:
+
+1. **Decoy Generation**: Create target-decoy database for FDR estimation
+2. **Database Search**: Peptide identification with Comet
+3. **Peptide Indexing**: Map peptides to protein sequences
+4. **Feature Extraction**: Extract PSM features for rescoring
+5. **FDR Rescoring**: Statistical validation with Percolator
+6. **Filtering**: Apply score and length filters
+
+## Interactive Visualizations
+
+MHCquant features rich interactive visualizations powered by [**openms-insight**](https://github.com/t0mdavid-m/openms-insight), a Python library for mass spectrometry data exploration:
+
+- **Identification Table**: Sortable, filterable table of all peptide identifications with synchronized selection across views
+- **Annotated Spectrum Viewer**: Interactive mirror plots showing experimental vs. theoretical spectra with fragment ion annotations
+- **Sequence Coverage View**: Visual representation of identified peptides mapped to protein sequences with modification highlighting
+
+All visualization components are interconnected - selecting a peptide in the table automatically updates the spectrum and sequence views, enabling seamless data exploration.
+
+openms-insight is designed for integration into Streamlit applications and provides high-performance rendering with intelligent caching for large datasets. Check out the [openms-insight repository](https://github.com/t0mdavid-m/openms-insight) to build your own MS data visualization apps.
+
+## Running Tests
+
+```bash
+# Run unit tests
+pytest tests/ -v --ignore=tests/test_workflow_integration.py
+
+# Run integration tests (requires OpenMS TOPP tools)
+pytest tests/test_workflow_integration.py -v -m integration
+```
 
 ## Citation
 
-Please cite:
-Müller, T. D., Siraj, A., et al. OpenMS WebApps: Building User-Friendly Solutions for MS Analysis. Journal of Proteome Research (2025). [https://doi.org/10.1021/acs.jproteome.4c00872](https://doi.org/10.1021/acs.jproteome.4c00872)
+If you use MHCquant-web in your research, please cite:
+
+Scheld JS, Bichmann L, Nelde A, et al. "MHCquant2 refines immunopeptidomics tumor antigen discovery." *Genome Biology* 2025, 26, 63. [https://doi.org/10.1186/s13059-025-03763-8](https://doi.org/10.1186/s13059-025-03763-8)
+
+Mueller TD, Siraj A, et al. OpenMS WebApps: Building User-Friendly Solutions for MS Analysis. *Journal of Proteome Research* (2025). [https://doi.org/10.1021/acs.jproteome.4c00872](https://doi.org/10.1021/acs.jproteome.4c00872).
 
 ## References
-
-- Pfeuffer, J., Bielow, C., Wein, S. et al. OpenMS 3 enables reproducible analysis of large-scale mass spectrometry data. Nat Methods 21, 365–367 (2024). [https://doi.org/10.1038/s41592-024-02197-7](https://doi.org/10.1038/s41592-024-02197-7)
-
-- Röst HL, Schmitt U, Aebersold R, Malmström L. pyOpenMS: a Python-based interface to the OpenMS mass-spectrometry algorithm library. Proteomics. 2014 Jan;14(1):74-7. [https://doi.org/10.1002/pmic.201300246](https://doi.org/10.1002/pmic.201300246). PMID: [24420968](https://pubmed.ncbi.nlm.nih.gov/24420968/).
-
+- Pfeuffer J, Bielow C, Wein S, et al. OpenMS 3 enables reproducible analysis of large-scale mass spectrometry data. *Nat Methods* 21, 365-367 (2024). [https://doi.org/10.1038/s41592-024-02197-7](https://doi.org/10.1038/s41592-024-02197-7)
 

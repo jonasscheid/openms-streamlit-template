@@ -2,9 +2,9 @@ name: Test workflow functions
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "mhcquant" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "mhcquant" ]
 
 jobs:
   build:
@@ -20,9 +20,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest
-    - name: Running test cases
+    - name: Running unit tests
       run: |
-        pytest test.py
+        pytest tests/ -v --ignore=tests/test_gui.py --ignore=tests/test_workflow_integration.py
     - name: Running GUI tests
       run: |
-        pytest test_gui.py
+        pytest tests/test_gui.py -v

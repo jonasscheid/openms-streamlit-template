@@ -85,7 +85,7 @@ pyarrow==19.0.1
     # via streamlit
 pydeck==0.9.1
     # via streamlit
-pyopenms==3.3.0
+pyopenms==3.5.0
     # via src (pyproject.toml)
 pyopenms-viz==1.0.0
     # via src (pyproject.toml)
@@ -137,6 +137,6 @@ urllib3==2.3.0
 watchdog==6.0.0
     # via streamlit
 xlsxwriter
-openms-insight>=0.1.0
+openms-insight>=0.1.4
 polars>=1.0.0
 ms2rescore>=3.1.5

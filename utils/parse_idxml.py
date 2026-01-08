@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Tuple, List, Dict, Optional
 
 import polars as pl
-from pyopenms import IdXMLFile
+from pyopenms import IdXMLFile,  PeptideIdentificationList
 
 
 def parse_spectrum_reference(spectrum_ref: str) -> int:
@@ -67,7 +67,6 @@ def get_spectra_data_from_idxml(idxml_path: str) -> List[str]:
 
 def parse_idxml(
     idxml_path: str,
-    filename_to_index: Optional[Dict[str, int]] = None,
 ) -> Tuple[pl.DataFrame, List[str]]:
     """Parse idXML to DataFrame with direct spectrum linking.
 
@@ -89,33 +88,22 @@ def parse_idxml(
         - spectra_data list (source mzML filenames)
     """
     protein_ids = []
-    peptide_ids = []
+    peptide_ids = PeptideIdentificationList()
     IdXMLFile().load(str(idxml_path), protein_ids, peptide_ids)
+    peptide_ids = [peptide_ids.at(i) for i in range(peptide_ids.size())]
 
     # Get spectra_data from first ProteinIdentification
     spectra_data = []
+    filename_to_index = {}
     if protein_ids:
-        try:
-            sd = protein_ids[0].getMetaValue("spectra_data")
-            if sd:
-                # Handle both list and string formats
-                if isinstance(sd, (list, tuple)):
-                    # List of strings or bytes
-                    spectra_data = [
-                        s.decode("utf-8") if isinstance(s, bytes) else str(s)
-                        for s in sd
-                    ]
-                elif isinstance(sd, str):
-                    # Parse "[file1.mzML,file2.mzML]" format
-                    sd = sd.strip("[]")
-                    spectra_data = [s.strip() for s in sd.split(",")]
-                elif isinstance(sd, bytes):
-                    sd = sd.decode("utf-8").strip("[]")
-                    spectra_data = [s.strip() for s in sd.split(",")]
-        except Exception as e:
-            print(f"Warning: Could not extract spectra_data: {e}")
+        sd = protein_ids[0].getMetaValue("spectra_data")
+        spectra_data = [
+            Path(s.decode("utf-8")).name if isinstance(s, bytes) else str(s)
+            for s in sd
+        ]
+        filename_to_index = {name : i for i, name in enumerate(spectra_data)}
 
-    print(f"Found spectra_data: {spectra_data}")
+    
 
     # Extract identification data
     id_data = []
@@ -126,25 +114,11 @@ def parse_idxml(
 
         best_hit = hits[0]
 
-        # Get id_merge_index from PeptideIdentification (not PeptideHit!)
-        id_merge_index = -1
-        try:
-            id_merge_index = int(pep_id.getMetaValue("id_merge_index"))
-        except Exception:
-            pass
+        # Get id_merge_index from PeptideIdentification
+        file_index = int(pep_id.getMetaValue("id_merge_index"))
 
         # Determine filename from id_merge_index
-        filename = ""
-        if 0 <= id_merge_index < len(spectra_data):
-            filename = spectra_data[id_merge_index]
-
-        # Map filename to file_index
-        file_index = -1
-        if filename_to_index is not None and filename:
-            file_index = filename_to_index.get(filename, -1)
-        else:
-            # Fallback: use id_merge_index as file_index
-            file_index = id_merge_index
+        filename = spectra_data[file_index]
 
         # Parse scan number from spectrum_reference
         # Use getSpectrumReference() as the primary API method
@@ -215,7 +189,7 @@ def parse_idxml(
             "scan_id": pl.Series([], dtype=pl.Int32),
         })
 
-    return df, spectra_data
+    return df, filename_to_index
 
 
 def get_unique_filenames(id_df: pl.DataFrame) -> List[str]:
