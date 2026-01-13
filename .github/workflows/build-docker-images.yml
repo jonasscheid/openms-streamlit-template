@@ -2,9 +2,9 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "main" , "mhcquant" ]
+    branches: [ "main" , "mhcquant", "mhcquant_held_back" ]
   pull_request:
-    branches: [ "main" , "mhcquant" ]
+    branches: [ "main" , "mhcquant", "mhcquant_held_back" ]
 
 jobs:
 

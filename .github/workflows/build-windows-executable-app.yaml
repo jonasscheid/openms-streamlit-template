@@ -1,9 +1,9 @@
 name: Build executable for Windows
 on:
   push:
-    branches: [ "main" , "mhcquant"]
+    branches: [ "main" , "mhcquant", "mhcquant_held_back"]
   pull_request:
-    branches: [ "main" , "mhcquant"]
+    branches: [ "main" , "mhcquant", "mhcquant_held_back"]
   release:
     types: [created]
   workflow_dispatch:
