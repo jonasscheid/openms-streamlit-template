@@ -109,8 +109,10 @@ class CommandExecutor:
         self.logger.log(f"Process finished:\n"+' '.join(command)+f"\nTotal time to run command: {execution_time:.2f} seconds", 1)
         
         # Check for errors
+        # Check for errors
         if process.returncode != 0:
             self.logger.log(f"ERRORS OCCURRED: Process exited with code {process.returncode}", 2)
+            raise subprocess.CalledProcessError(process.returncode, command)
 
     def _stream_output(self, process: subprocess.Popen) -> None:
         """

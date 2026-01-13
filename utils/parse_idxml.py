@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Tuple, List, Dict, Optional
 
 import polars as pl
-from pyopenms import IdXMLFile,  PeptideIdentificationList
+from pyopenms import IdXMLFile, PeptideIdentificationList
+
 
 
 def parse_spectrum_reference(spectrum_ref: str) -> int:
