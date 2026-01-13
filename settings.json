@@ -3,6 +3,7 @@
     "github-user": "OpenMS",
     "version": "1.0.0",
     "repository-name": "mhcquant-app",
+    "app_url": "http://localhost:8503",
     "analytics": {
         "google-analytics": {
             "enabled": false,
@@ -16,5 +17,7 @@
     "online_deployment": false,
     "enable_workspaces": true,
     "test": true,
-    "workspaces_dir": ".."
+    "workspaces_dir": "..",
+    "toppview_shared_exports": "/home/tom-mueller/kohlbacherlab/viz_package/TOPPView-Lite/shared-exports",
+    "toppview_lite_url": "http://localhost:8502"
 }

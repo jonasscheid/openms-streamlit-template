@@ -8,6 +8,9 @@ import polars as pl
 
 from utils.parse_idxml import parse_idxml
 from utils.build_spectra_cache import build_spectra_cache
+from utils.split_idxml import split_idxml_by_file
+
+from src.integration import render_toppview_button, is_toppview_available
 
 from openms_insight import Table, LinePlot, SequenceView, StateManager
 
@@ -375,6 +378,33 @@ class Workflow(WorkflowManager):
             st.warning("Please run a workflow to display results.")
             st.stop()
 
+        # TOPPView-Lite integration button
+        if is_toppview_available():
+            # Get mzML paths from params
+            mzml_paths = [Path(p) for p in self.params.get("mzML-files", [])]
+
+            # Get merged idXML and split it
+            id_filter_dir = self.file_manager.workflow_dir / 'results' / 'id_filter'
+            merged_idxmls = list(id_filter_dir.glob("*.idXML")) if id_filter_dir.exists() else []
+            merged_idxml = merged_idxmls[0] if merged_idxmls else None
+
+            if merged_idxml and mzml_paths:
+                # Split idXML by source file (cached)
+                split_cache_dir = cache_dir / 'split_idxml'
+                split_mapping = split_idxml_by_file(merged_idxml, split_cache_dir)
+
+                # Match idXML files to mzML files by stem
+                idxml_paths = [
+                    split_mapping[p.stem] for p in mzml_paths
+                    if p.stem in split_mapping
+                ]
+
+                render_toppview_button(
+                    mzml_paths=mzml_paths,
+                    idxml_paths=idxml_paths,
+                    app_name="MHCquant",
+                )
+
         # Create StateManager for cross-component linking
         state_manager = StateManager(session_key="id_viewer_state")
 
@@ -387,7 +417,7 @@ class Workflow(WorkflowManager):
         st.subheader("Peptide Identifications")
         id_table(key="id_table", state_manager=state_manager, height=400)
 
-        sv_result = sequence_view(key="sequence_view", state_manager=state_manager, height=450)
+        sv_result = sequence_view(key="sequence_view", state_manager=state_manager, height=800)
 
         if sv_result.annotations is not None and sv_result.annotations.height > 0:
             st.caption(f"Matched {sv_result.annotations.height} fragments")
