@@ -18,6 +18,6 @@
     "enable_workspaces": true,
     "test": true,
     "workspaces_dir": "..",
-    "toppview_shared_exports": "/home/tom-mueller/kohlbacherlab/viz_package/TOPPView-Lite/shared-exports",
-    "toppview_lite_url": "http://localhost:8502"
+    "toppview_shared_exports": "/shared-exports",
+    "toppview_lite_url": "https://abi-services.cs.uni-tuebingen.de/toppview-lite/"
 }
