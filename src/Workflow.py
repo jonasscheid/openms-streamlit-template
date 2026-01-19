@@ -142,7 +142,7 @@ class Workflow(WorkflowManager):
             "CometAdapter",
             input_output={"in": in_mzML, "out": out_comet, "database": out_decoy_db},
             custom_params={
-                "fixed_modifications": " ",
+                "fixed_modifications": "' '",
             }
         )
 
