@@ -79,8 +79,7 @@ class Workflow(WorkflowManager):
             # Parameters for CometAdapter
             self.ui.input_TOPP(
                 "CometAdapter",
-                exclude_parameters=["binary_modifications","missed_cleavages"],
-                custom_defaults={"fixed_modifications": []}
+                exclude_parameters=["binary_modifications","missed_cleavages"]
             )
         with t[1]:
             # Parameters for IDFilter TOPP tool.
