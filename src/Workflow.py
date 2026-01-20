@@ -79,7 +79,8 @@ class Workflow(WorkflowManager):
             # Parameters for CometAdapter
             self.ui.input_TOPP(
                 "CometAdapter",
-                exclude_parameters=["binary_modifications","missed_cleavages"]
+                exclude_parameters=["binary_modifications","missed_cleavages"],
+                custom_defaults={"fixed_modifications": []}
             )
         with t[1]:
             # Parameters for IDFilter TOPP tool.
@@ -138,12 +139,16 @@ class Workflow(WorkflowManager):
         out_comet = self.file_manager.get_files(
             in_mzML, set_file_type="idXML", set_results_dir="comet"
         )
+        # Pass fixed_modifications with no value if user hasn't set one
+        comet_custom_params = {}
+        comet_params = self.params.get("CometAdapter", {})
+        if not comet_params.get("fixed_modifications"):
+            comet_custom_params["fixed_modifications"] = ""
+
         self.executor.run_topp(
             "CometAdapter",
             input_output={"in": in_mzML, "out": out_comet, "database": out_decoy_db},
-            #custom_params={
-            #    "missed_cleavages": "0",
-            #}
+            custom_params=comet_custom_params,
         )
 
         # 4. PeptideIndexer
