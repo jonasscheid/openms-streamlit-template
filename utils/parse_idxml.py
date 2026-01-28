@@ -13,17 +13,28 @@ from pyopenms import IdXMLFile,  PeptideIdentificationList
 
 
 def parse_spectrum_reference(spectrum_ref: str) -> int:
-    """Extract scan number from spectrum_reference string.
+    """Extract scan/spectrum ID from spectrum_reference string.
+
+    Handles both formats:
+    - Thermo: "controllerType=0 controllerNumber=1 scan=394" -> 394
+    - Index: "index=4419" -> 4419
 
     Args:
-        spectrum_ref: Native ID string, e.g. "controllerType=0 controllerNumber=1 scan=394"
+        spectrum_ref: Native ID string from idXML spectrum_reference
 
     Returns:
-        Scan number as integer, or -1 if not found
+        Scan/spectrum ID as integer, or -1 if not found
     """
+    # Try scan= format first (Thermo)
     match = re.search(r'scan=(\d+)', spectrum_ref)
     if match:
         return int(match.group(1))
+
+    # Try index= format
+    match = re.search(r'index=(\d+)', spectrum_ref)
+    if match:
+        return int(match.group(1))
+
     return -1
 
 
