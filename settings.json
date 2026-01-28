@@ -19,5 +19,15 @@
     "test": true,
     "workspaces_dir": "..",
     "toppview_shared_exports": "/shared-exports",
-    "toppview_lite_url": "https://abi-services.cs.uni-tuebingen.de/toppview-lite/"
+    "toppview_lite_url": "https://abi-services.cs.uni-tuebingen.de/toppview-lite/",
+    "queue_settings": {
+        "default_timeout": 7200,
+        "result_ttl": 86400
+    },
+    "demo_workspaces": {
+        "enabled": true,
+        "source_dirs": [
+            "example-data/workspaces"
+        ]
+    }
 }
