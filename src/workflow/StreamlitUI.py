@@ -3,7 +3,7 @@ import pyopenms as poms
 from pathlib import Path
 import shutil
 import subprocess
-from typing import Any, Union, List, Literal
+from typing import Any, Union, List, Literal, Callable
 import json
 import os
 import sys
@@ -303,13 +303,13 @@ class StreamlitUI:
         elif not fallback:
             st.warning(f"No **{name}** files!")
 
-    @st.fragment
     def select_input_file(
         self,
         key: str,
         name: str = "",
         multiple: bool = False,
         display_file_path: bool = False,
+        reactive: bool = False,
     ) -> None:
         """
         Presents a widget for selecting input files from those that have been uploaded.
@@ -320,7 +320,22 @@ class StreamlitUI:
             name (str, optional): The display name for the selection widget. Defaults to the key if not provided.
             multiple (bool, optional): If True, allows multiple files to be selected.
             display_file_path (bool, optional): If True, displays the full file path in the selection widget.
+            reactive (bool, optional): If True, widget changes trigger the parent
+                section to re-render, enabling conditional UI based on this widget's
+                value. Use for widgets that control visibility of other UI elements.
+                Default is False (widget changes are isolated for performance).
         """
+        if reactive:
+            self._select_input_file_impl(key, name, multiple, display_file_path, reactive)
+        else:
+            self._select_input_file_fragmented(key, name, multiple, display_file_path, reactive)
+
+    @st.fragment
+    def _select_input_file_fragmented(self, key, name, multiple, display_file_path, reactive):
+        self._select_input_file_impl(key, name, multiple, display_file_path, reactive)
+
+    def _select_input_file_impl(self, key, name, multiple, display_file_path, reactive):
+        """Internal implementation of select_input_file - contains all the widget logic."""
         if not name:
             name = f"**{key}**"
         path = Path(self.workflow_dir, "input-files", key)
@@ -349,9 +364,9 @@ class StreamlitUI:
             widget_type=widget_type,
             options=options,
             display_file_path=display_file_path,
+            reactive=reactive,
         )
 
-    @st.fragment
     def input_widget(
         self,
         key: str,
@@ -364,6 +379,8 @@ class StreamlitUI:
         max_value: Union[int, float] = None,
         step_size: Union[int, float] = 1,
         display_file_path: bool = False,
+        on_change: Callable = None,
+        reactive: bool = False,
     ) -> None:
         """
         Creates and displays a Streamlit widget for user input based on specified
@@ -385,7 +402,42 @@ class StreamlitUI:
             max_value (Union[int, float], optional): Maximum value for number/slider widgets.
             step_size (Union[int, float], optional): Step size for number/slider widgets.
             display_file_path (bool, optional): Whether to display the full file path for file options.
+            reactive (bool, optional): If True, widget changes trigger the parent
+                section to re-render, enabling conditional UI based on this widget's
+                value. Use for widgets that control visibility of other UI elements.
+                Default is False (widget changes are isolated for performance).
         """
+        if reactive:
+            # Render directly in parent context - changes trigger parent rerun
+            self._input_widget_impl(
+                key, default, name, help, widget_type, options,
+                min_value, max_value, step_size, display_file_path, on_change
+            )
+        else:
+            # Render in isolated fragment - changes don't affect parent
+            self._input_widget_fragmented(
+                key, default, name, help, widget_type, options,
+                min_value, max_value, step_size, display_file_path, on_change
+            )
+
+    @st.fragment
+    def _input_widget_fragmented(
+        self, key, default, name, help, widget_type,
+        options, min_value, max_value, step_size,
+        display_file_path, on_change
+    ):
+        self._input_widget_impl(
+            key, default, name, help, widget_type,
+            options, min_value, max_value, step_size,
+            display_file_path, on_change
+        )
+
+    def _input_widget_impl(
+        self, key, default, name, help, widget_type,
+        options, min_value, max_value, step_size,
+        display_file_path, on_change
+    ):
+        """Internal implementation of input_widget - contains all the widget logic."""
 
         def format_files(input: Any) -> List[str]:
             if not display_file_path and Path(input).exists():
@@ -407,10 +459,10 @@ class StreamlitUI:
         key = f"{self.parameter_manager.param_prefix}{key}"
 
         if widget_type == "text":
-            st.text_input(name, value=value, key=key, help=help)
+            st.text_input(name, value=value, key=key, help=help, on_change=on_change)
 
         elif widget_type == "textarea":
-            st.text_area(name, value=value, key=key, help=help)
+            st.text_area(name, value=value, key=key, help=help, on_change=on_change)
 
         elif widget_type == "number":
             number_type = float if isinstance(value, float) else int
@@ -429,10 +481,11 @@ class StreamlitUI:
                 format=None,
                 key=key,
                 help=help,
+                on_change=on_change,
             )
 
         elif widget_type == "checkbox":
-            st.checkbox(name, value=value, key=key, help=help)
+            st.checkbox(name, value=value, key=key, help=help, on_change=on_change)
 
         elif widget_type == "selectbox":
             if options is not None:
@@ -443,6 +496,7 @@ class StreamlitUI:
                     key=key,
                     format_func=format_files,
                     help=help,
+                    on_change=on_change,
                 )
             else:
                 st.warning(f"Select widget '{name}' requires options parameter")
@@ -456,6 +510,7 @@ class StreamlitUI:
                     key=key,
                     format_func=format_files,
                     help=help,
+                    on_change=on_change,
                 )
             else:
                 st.warning(f"Select widget '{name}' requires options parameter")
@@ -477,6 +532,7 @@ class StreamlitUI:
                     key=key,
                     format=None,
                     help=help,
+                    on_change=on_change,
                 )
             else:
                 st.warning(
@@ -484,47 +540,66 @@ class StreamlitUI:
                 )
 
         elif widget_type == "password":
-            st.text_input(name, value=value, type="password", key=key, help=help)
+            st.text_input(name, value=value, type="password", key=key, help=help, on_change=on_change)
 
         elif widget_type == "auto":
             # Auto-determine widget type based on value
             if isinstance(value, bool):
-                st.checkbox(name, value=value, key=key, help=help)
+                st.checkbox(name, value=value, key=key, help=help, on_change=on_change)
             elif isinstance(value, (int, float)):
-                self.input_widget(
+                self._input_widget_impl(
                     key,
                     value,
-                    widget_type="number",
                     name=name,
+                    help=help,
+                    widget_type="number",
+                    options=None,
                     min_value=min_value,
                     max_value=max_value,
                     step_size=step_size,
-                    help=help,
+                    display_file_path=False,
+                    on_change=on_change,
                 )
             elif (isinstance(value, str) or value == None) and options is not None:
-                self.input_widget(
+                self._input_widget_impl(
                     key,
                     value,
-                    widget_type="selectbox",
                     name=name,
-                    options=options,
                     help=help,
+                    widget_type="selectbox",
+                    options=options,
+                    min_value=None,
+                    max_value=None,
+                    step_size=1,
+                    display_file_path=False,
+                    on_change=on_change,
                 )
             elif isinstance(value, list) and options is not None:
-                self.input_widget(
+                self._input_widget_impl(
                     key,
                     value,
-                    widget_type="multiselect",
                     name=name,
-                    options=options,
                     help=help,
+                    widget_type="multiselect",
+                    options=options,
+                    min_value=None,
+                    max_value=None,
+                    step_size=1,
+                    display_file_path=False,
+                    on_change=on_change,
                 )
             elif isinstance(value, bool):
-                self.input_widget(
-                    key, value, widget_type="checkbox", name=name, help=help
+                self._input_widget_impl(
+                    key, value, name=name, help=help, widget_type="checkbox",
+                    options=None, min_value=None, max_value=None, step_size=1,
+                    display_file_path=False, on_change=on_change
                 )
             else:
-                self.input_widget(key, value, widget_type="text", name=name, help=help)
+                self._input_widget_impl(
+                    key, value, name=name, help=help, widget_type="text",
+                    options=None, min_value=None, max_value=None, step_size=1,
+                    display_file_path=False, on_change=on_change
+                )
 
         else:
             st.error(f"Unsupported widget type '{widget_type}'")
@@ -585,31 +660,55 @@ class StreamlitUI:
         # read into Param object
         param = poms.Param()
         poms.ParamXMLFile().load(str(ini_file_path), param)
+
+        def _matches_parameter(pattern: str, key: bytes) -> bool:
+            """
+            Match pattern against TOPP parameter key using suffix matching.
+
+            Key format: b"ToolName:1:section:subsection:param_name"
+
+            Returns True if pattern matches the end of the param path,
+            bounded by ':' or start of path.
+            """
+            pattern = pattern.lstrip(":")  # Strip legacy leading colon
+            key_str = key.decode()
+
+            # Extract param path after "ToolName:1:"
+            parts = key_str.split(":")
+            param_path = ":".join(parts[2:]) if len(parts) > 2 else key_str
+
+            # Check if pattern matches as a suffix, bounded by ':' or start
+            return param_path == pattern or param_path.endswith(":" + pattern)
+
+        # Always apply base exclusions (input/output files, standard excludes)
+        excluded_keys = [
+            "log",
+            "debug",
+            "threads",
+            "no_progress",
+            "force",
+            "version",
+            "test",
+        ] + exclude_parameters
+
+        valid_keys = [
+            key
+            for key in param.keys()
+            if not (
+                b"input file" in param.getTags(key)
+                or b"output file" in param.getTags(key)
+                or any([_matches_parameter(k, key) for k in excluded_keys])
+            )
+        ]
+
+        # Track which keys are "included" (shown by default) vs "non-included" (advanced only)
         if include_parameters:
-            valid_keys = [
-                key
-                for key in param.keys()
-                if any([k.encode() in key for k in include_parameters])
-            ]
+            included_keys = {
+                key for key in valid_keys
+                if any([_matches_parameter(k, key) for k in include_parameters])
+            }
         else:
-            excluded_keys = [
-                "log",
-                "debug",
-                "threads",
-                "no_progress",
-                "force",
-                "version",
-                "test",
-            ] + exclude_parameters
-            valid_keys = [
-                key
-                for key in param.keys()
-                if not (
-                    b"input file" in param.getTags(key)
-                    or b"output file" in param.getTags(key)
-                    or any([k.encode() in key for k in excluded_keys])
-                )
-            ]
+            included_keys = set(valid_keys)  # All are included when no filter specified
         params = []
         for key in valid_keys:
             entry = param.getEntry(key)
@@ -621,6 +720,7 @@ class StreamlitUI:
                 "valid_strings": [v.decode() for v in entry.valid_strings],
                 "description": entry.description.decode(),
                 "advanced": (b"advanced" in param.getTags(key)),
+                "non_included": key not in included_keys,
                 "section_description": param.getSectionDescription(
                     ":".join(key.decode().split(":")[:-1])
                 ),
@@ -644,14 +744,18 @@ class StreamlitUI:
                     p["value"] = custom_defaults[name]
             elif name in custom_defaults:
                 p["value"] = custom_defaults[name]
+            # Ensure list parameters stay as lists after loading from JSON
+            # (JSON may store single-item lists as strings)
+            if p["original_is_list"] and isinstance(p["value"], str):
+                p["value"] = p["value"].split("\n") if p["value"] else []
 
         # Split into subsections if required
         param_sections = {}
         section_descriptions = {}
         if display_subsections:
             for p in params:
-                # Skip adavnaced parameters if not selected
-                if not st.session_state["advanced"] and p["advanced"]:
+                # Skip advanced/non-included parameters if toggle not enabled
+                if not st.session_state["advanced"] and (p["advanced"] or p["non_included"]):
                     continue
                 # Add section description to section_descriptions dictionary if it exists
                 if p["section_description"]:
@@ -665,7 +769,11 @@ class StreamlitUI:
                     param_sections[p["sections"]] = [p]
         else:
             # Simply put all parameters in "all" section if no subsections required
-            param_sections["all"] = params
+            # Filter advanced/non-included parameters if toggle not enabled
+            param_sections["all"] = [
+                p for p in params
+                if st.session_state["advanced"] or (not p["advanced"] and not p["non_included"])
+            ]
 
         # Display tool name if required
         if display_tool_name:
@@ -704,10 +812,6 @@ class StreamlitUI:
                     # sometimes strings with newline, handle as list
                     if isinstance(p["value"], str) and "\n" in p["value"]:
                         p["value"] = p["value"].split("\n")
-                    # If original type was list but value is now string (single value from JSON),
-                    # convert back to list to preserve widget type
-                    if p["original_is_list"] and isinstance(p["value"], str):
-                        p["value"] = [p["value"]] if p["value"] else []
                     # bools
                     if isinstance(p["value"], bool):
                         cols[i].markdown("##")
@@ -760,19 +864,38 @@ class StreamlitUI:
                             v.decode() if isinstance(v, bytes) else v
                             for v in p["value"]
                         ]
-                        valid_entries_info = ''
+
+                        # Use multiselect when valid_strings are available for better UX
                         if len(p['valid_strings']) > 0:
-                            valid_entries_info = (
-                                " Valid entries are: "
-                                + ', '.join(sorted(p['valid_strings']))
+                            # Filter current values to only include valid options
+                            current_values = [v for v in p["value"] if v in p['valid_strings']]
+
+                            # Use a display key for multiselect (stores list), sync to main key (stores string)
+                            display_key = f"{key}_display"
+
+                            def on_multiselect_change(dk=display_key, tk=key):
+                                st.session_state[tk] = "\n".join(st.session_state[dk])
+
+                            cols[i].multiselect(
+                                name,
+                                options=sorted(p['valid_strings']),
+                                default=current_values,
+                                help=p["description"],
+                                key=display_key,
+                                on_change=on_multiselect_change,
                             )
 
-                        cols[i].text_area(
-                            name,
-                            value="\n".join([str(val) for val in p["value"]]),
-                            help=p["description"] + " Separate entries using the \"Enter\" key." + valid_entries_info,
-                            key=key,
-                        )
+                            # Ensure main key has string value for ParameterManager
+                            if key not in st.session_state:
+                                st.session_state[key] = "\n".join(current_values)
+                        else:
+                            # Fall back to text_area for freeform list input
+                            cols[i].text_area(
+                                name,
+                                value="\n".join([str(val) for val in p["value"]]),
+                                help=p["description"] + " Separate entries using the \"Enter\" key.",
+                                key=key,
+                            )
 
                     # increment number of columns, create new cols object if end of line is reached
                     i += 1
@@ -991,7 +1114,12 @@ class StreamlitUI:
                     f.write(up.read().decode("utf-8"))
                 streamlit_js_eval(js_expressions="parent.window.location.reload()")
 
-    def execution_section(self, start_workflow_function) -> None:
+    def execution_section(
+        self,
+        start_workflow_function,
+        get_status_function=None,
+        stop_workflow_function=None
+    ) -> None:
         with st.expander("**Summary**"):
             st.markdown(self.export_parameters_markdown())
 
@@ -1000,65 +1128,148 @@ class StreamlitUI:
         log_level = c1.selectbox(
             "log details", ["minimal", "commands and run times", "all"], key="log_level"
         )
-        
+
         # Real-time display options
         if "log_lines_count" not in st.session_state:
             st.session_state.log_lines_count = 100
-        
+
         log_lines_count = c2.selectbox(
             "lines to show", [50, 100, 200, 500, "all"],
             index=1, key="log_lines_select"
         )
         if log_lines_count != "all":
             st.session_state.log_lines_count = log_lines_count
-        
-        pid_exists = self.executor.pid_dir.exists()
+
+        # Get workflow status (supports both queue and local modes)
+        status = {}
+        if get_status_function:
+            status = get_status_function()
+
+        # Determine if workflow is running
+        is_running = status.get("running", False)
+        job_status = status.get("status", "idle")
+
+        # Fallback to PID check for backward compatibility
+        pid_exists = self.executor.pid_dir.exists() and list(self.executor.pid_dir.iterdir())
+        if not is_running and pid_exists:
+            is_running = True
+            job_status = "running"
+
         log_path = Path(self.workflow_dir, "logs", log_level.replace(" ", "-") + ".log")
         log_exists = log_path.exists()
 
-        if pid_exists:
+        # Show queue status if available (online mode)
+        if status.get("job_id"):
+            self._show_queue_status(status)
+
+        # Control buttons
+        if is_running:
             if c1.button("Stop Workflow", type="primary", use_container_width=True):
-                self.executor.stop()
+                if stop_workflow_function:
+                    stop_workflow_function()
+                else:
+                    self.executor.stop()
                 st.rerun()
         elif c1.button("Start Workflow", type="primary", use_container_width=True):
             start_workflow_function()
-            with st.spinner("**Workflow running...**"):
+            with st.spinner("**Workflow starting...**"):
                 time.sleep(1)
                 st.rerun()
 
-        if log_exists and pid_exists:
+        # Display logs and status
+        if is_running:
             # Real-time display during execution
-            with st.spinner("**Workflow running...**"):
-                with open(log_path, "r", encoding="utf-8") as f:
-                    lines = f.readlines()
-                if log_lines_count == "all":
-                    display_lines = lines
-                else:
-                    display_lines = lines[-st.session_state.log_lines_count:]
-                st.code(
-                    "".join(display_lines),
-                    language="neon",
-                    line_numbers=False,
-                )
+            spinner_text = "**Workflow running...**"
+            if job_status == "queued":
+                pos = status.get("queue_position", "?")
+                spinner_text = f"**Waiting in queue (position {pos})...**"
+
+            with st.spinner(spinner_text):
+                if log_exists:
+                    with open(log_path, "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                    if log_lines_count == "all":
+                        display_lines = lines
+                    else:
+                        display_lines = lines[-st.session_state.log_lines_count:]
+                    st.code(
+                        "".join(display_lines),
+                        language="neon",
+                        line_numbers=False,
+                    )
                 # Faster polling for real-time updates
                 time.sleep(1)
                 st.rerun()
 
-        elif log_exists and not pid_exists:
+        elif log_exists:
             # Static display after completion
             st.markdown(
                 f"**Workflow log file: {datetime.fromtimestamp(log_path.stat().st_ctime).strftime('%Y-%m-%d %H:%M')} CET**"
             )
             with open(log_path, "r", encoding="utf-8") as f:
-                content = f.read()
+                lines = f.readlines()
+            content = "".join(lines)
             # Check if workflow finished successfully
-            if not "WORKFLOW FINISHED" in content:
+            if "WORKFLOW FINISHED" in content:
+                st.success("**Workflow completed successfully.**")
+            else:
                 st.error("**Errors occurred, check log file.**")
-            st.code(content, language="neon", line_numbers=False)
-        elif pid_exists:
-            with st.spinner("**Workflow running...**"):
-                time.sleep(1)
-                st.rerun()
+            # Apply line limit to static display
+            if log_lines_count == "all":
+                display_lines = lines
+            else:
+                display_lines = lines[-st.session_state.log_lines_count:]
+            st.code("".join(display_lines), language="neon", line_numbers=False)
+
+    def _show_queue_status(self, status: dict) -> None:
+        """Display queue job status for online mode"""
+        job_status = status.get("status", "unknown")
+
+        # Status icons
+        status_display = {
+            "queued": ("Queued", "info"),
+            "started": ("Running", "info"),
+            "finished": ("Completed", "success"),
+            "failed": ("Failed", "error"),
+            "canceled": ("Cancelled", "warning"),
+        }
+
+        label, msg_type = status_display.get(job_status, ("Unknown", "info"))
+
+        # Queue-specific information
+        if job_status == "queued":
+            queue_position = status.get("queue_position", "?")
+            queue_length = status.get("queue_length", "?")
+            st.info(f"**Status: {label}** - Your workflow is #{queue_position} in the queue ({queue_length} total jobs)")
+
+        elif job_status == "started":
+            current_step = status.get("current_step", "Processing...")
+            st.info(f"**Status: {label}** - {current_step}")
+
+        elif job_status == "finished":
+            # Check if the job result indicates success or failure
+            job_result = status.get("result")
+            if job_result and isinstance(job_result, dict) and job_result.get("success") is False:
+                st.error(f"**Status: Completed with errors**")
+                error_msg = job_result.get("error", "Unknown error")
+                if error_msg:
+                    with st.expander("Error Details", expanded=True):
+                        st.code(error_msg)
+            else:
+                st.success(f"**Status: {label}**")
+
+        elif job_status == "failed":
+            st.error(f"**Status: {label}**")
+            job_error = status.get("error")
+            if job_error:
+                with st.expander("Error Details", expanded=True):
+                    st.code(job_error)
+
+        # Expandable job details
+        with st.expander("Job Details", expanded=False):
+            st.code(f"""Job ID: {status.get('job_id', 'N/A')}
+Submitted: {status.get('enqueued_at', 'N/A')}
+Started: {status.get('started_at', 'N/A')}""")
 
 
 
