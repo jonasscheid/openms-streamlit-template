@@ -144,6 +144,7 @@ RUN echo "0 3 * * * /root/miniforge3/envs/streamlit-env/bin/python /app/clean-up
 # create entrypoint script to start cron service and launch streamlit app
 RUN echo "#!/bin/bash" > /app/entrypoint.sh && \
     echo "source /root/miniforge3/bin/activate streamlit-env" >> /app/entrypoint.sh && \
+    echo "export LD_LIBRARY_PATH=/root/miniforge3/envs/streamlit-env/lib:\$LD_LIBRARY_PATH" >> /app/entrypoint.sh && \
     echo "service cron start" >> /app/entrypoint.sh && \
     echo "streamlit run app.py" >> /app/entrypoint.sh
 # make the script executable
