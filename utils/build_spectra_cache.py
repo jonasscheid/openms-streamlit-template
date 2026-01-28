@@ -74,7 +74,7 @@ def build_spectra_cache(
     global_peak_id = 0
 
     for mzml_path in mzml_files:
-        filename = mzml_path.name
+        filename = mzml_path.stem  # Use stem (without extension) to match index
         file_index = filename_to_index.get(filename)
 
         if file_index is None:
