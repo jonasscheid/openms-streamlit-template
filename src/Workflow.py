@@ -295,9 +295,14 @@ class Workflow(WorkflowManager):
         # Parse idXML file
         id_df, filename_to_index = parse_idxml(out_filtered[0])
 
-        # Build spectra cache from mzML files
+        # Extract required scans from identifications
+        required_scans = set(
+            zip(id_df["file_index"].to_list(), id_df["scan_id"].to_list())
+        )
+
+        # Build spectra cache from mzML files (only for required scans)
         spectra_df, filename_to_index = build_spectra_cache(
-            Path(in_mzML[0]).parent, filename_to_index
+            Path(in_mzML[0]).parent, filename_to_index, required_scans
         )
 
         # Create identification table component
