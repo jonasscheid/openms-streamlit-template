@@ -157,7 +157,7 @@ ENV REDIS_URL=redis://localhost:6379/0
 RUN echo -e '#!/bin/bash\n\
 set -e\n\
 source /root/miniforge3/bin/activate streamlit-env\n\
-export LD_LIBRARY_PATH=/root/miniforge3/envs/streamlit-env/lib:\$LD_LIBRARY_PATH\n\
+export LD_LIBRARY_PATH=/root/miniforge3/envs/streamlit-env/lib:/openms/lib/\n\
 \n\
 # Start cron for workspace cleanup\n\
 service cron start\n\
