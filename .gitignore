@@ -7,7 +7,6 @@ clean-up-workspaces.log
 *-embed-amd64
 get-pip.py
 run_app.bat
-python*
 **/__pycache__/
 gdpr_consent/node_modules/
 *~
