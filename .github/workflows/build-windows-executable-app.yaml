@@ -235,21 +235,31 @@ jobs:
         cp $PYTHON_DIR/DLLs/tcl86t.dll $EMBED_DIR/
         cp $PYTHON_DIR/DLLs/tk86t.dll $EMBED_DIR/
 
-    - name: Install pip
-      run: |
-        curl -O https://bootstrap.pypa.io/get-pip.py
-        ./python-${{ env.PYTHON_VERSION }}/python get-pip.py --no-warn-script-location
-        rm get-pip.py
-
     - name: Uncomment 'import site' in python311._pth file
       run: |
         sed -i 's/#import site/import site/' python-${{ env.PYTHON_VERSION }}/python311._pth
 
+    - name: Replace polars with polars-lts-cpu in requirements.txt
+      shell: pwsh
+      run: |
+        $path = "requirements.txt"
+
+        $lines = Get-Content $path
+        $lines = $lines | ForEach-Object {
+          if ($_ -match '^\s*polars(\s|[<=>!~\[]|$)') {
+            $_ -replace '^\s*polars', 'polars-lts-cpu'
+          } else {
+            $_
+          }
+        }
+
+        Set-Content -Path $path -Value $lines -Encoding utf8
+        Write-Host "Updated requirements.txt:"
+        Get-Content $path
+
     - name: Install Required Packages
       run: |
-        .\python-${{ env.PYTHON_VERSION }}\python -m pip install --force-reinstall -r requirements.txt --no-warn-script-location
-        .\python-${{ env.PYTHON_VERSION }}\python -m pip uninstall polars --yes
-        .\python-${{ env.PYTHON_VERSION }}\python -m pip install 'polars-lts-cpu >= 1.0'
+        .\python -m pip install -r requirements.txt --target python-${{ env.PYTHON_VERSION }}/Lib/site-packages --upgrade --no-warn-script-location
 
     - name: Set to offline deployment
       run: |
