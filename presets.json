@@ -1,44 +1,123 @@
 {
     "topp-workflow": {
-        "High Sensitivity": {
-            "_description": "Optimized for detecting low-abundance features with higher noise tolerance",
-            "FeatureFinderMetabo": {
-                "algorithm:common:noise_threshold_int": 500.0,
-                "algorithm:common:chrom_peak_snr": 2.0,
-                "algorithm:mtd:mass_error_ppm": 15.0
+        "timsTOF Class I": {
+            "_description": "Bruker timsTOF Pro optimized for MHC Class I peptides (8-12 aa)",
+            "CometAdapter": {
+                "instrument": "high_res",
+                "digest_mass_range": "800:2500",
+                "activation_method": "CID",
+                "precursor_charge": "1:4",
+                "precursor_error_units": "ppm",
+                "max_variable_mods_in_peptide": 3,
+                "precursor_mass_tolerance": 20.0,
+                "fragment_mass_tolerance": 0.02,
+                "fragment_bin_offset": 0.0,
+                "enzyme": "unspecific cleavage"
             }
         },
-        "High Specificity": {
-            "_description": "Strict parameters for high-confidence feature detection",
-            "FeatureFinderMetabo": {
-                "algorithm:common:noise_threshold_int": 5000.0,
-                "algorithm:common:chrom_peak_snr": 5.0,
-                "algorithm:mtd:mass_error_ppm": 5.0
+        "timsTOF Class II": {
+            "_description": "Bruker timsTOF Pro optimized for MHC Class II peptides (12-25 aa)",
+            "CometAdapter": {
+                "instrument": "high_res",
+                "digest_mass_range": "800:5000",
+                "activation_method": "CID",
+                "precursor_charge": "1:5",
+                "precursor_error_units": "ppm",
+                "max_variable_mods_in_peptide": 5,
+                "precursor_mass_tolerance": 20.0,
+                "fragment_mass_tolerance": 0.02,
+                "fragment_bin_offset": 0.0,
+                "enzyme": "unspecific cleavage"
             }
         },
-        "Fast Analysis": {
-            "_description": "Faster processing with relaxed parameters for quick exploration",
-            "FeatureFinderMetabo": {
-                "algorithm:common:noise_threshold_int": 2000.0,
-                "algorithm:ffm:isotope_filtering_model": "none"
-            },
-            "FeatureLinkerUnlabeledKD": {
-                "algorithm:link:rt_tol": 60.0,
-                "algorithm:link:mz_tol": 15.0
+        "Orbitrap Fusion Lumos Class I": {
+            "_description": "Thermo Orbitrap Fusion Lumos for MHC Class I peptides",
+            "CometAdapter": {
+                "instrument": "high_res",
+                "digest_mass_range": "800:2500",
+                "activation_method": "HCD",
+                "precursor_charge": "2:3",
+                "precursor_error_units": "ppm",
+                "max_variable_mods_in_peptide": 3,
+                "precursor_mass_tolerance": 5.0,
+                "fragment_mass_tolerance": 0.02,
+                "fragment_bin_offset": 0.0,
+                "enzyme": "unspecific cleavage"
             }
         },
-        "Metabolomics Default": {
-            "_description": "Balanced parameters for general metabolomics analysis",
-            "FeatureFinderMetabo": {
-                "algorithm:common:noise_threshold_int": 1000.0,
-                "algorithm:common:chrom_peak_snr": 3.0,
-                "algorithm:mtd:mass_error_ppm": 10.0,
-                "algorithm:ffm:charge_lower_bound": 1,
-                "algorithm:ffm:charge_upper_bound": 3
-            },
-            "FeatureLinkerUnlabeledKD": {
-                "algorithm:link:rt_tol": 30.0,
-                "algorithm:link:mz_tol": 10.0
+        "Orbitrap Fusion Lumos Class II": {
+            "_description": "Thermo Orbitrap Fusion Lumos for MHC Class II peptides",
+            "CometAdapter": {
+                "instrument": "high_res",
+                "digest_mass_range": "800:5000",
+                "activation_method": "HCD",
+                "precursor_charge": "2:5",
+                "precursor_error_units": "ppm",
+                "max_variable_mods_in_peptide": 5,
+                "precursor_mass_tolerance": 5.0,
+                "fragment_mass_tolerance": 0.02,
+                "fragment_bin_offset": 0.0,
+                "enzyme": "unspecific cleavage"
+            }
+        },
+        "Q Exactive Orbitrap Class I": {
+            "_description": "Thermo Q Exactive for MHC Class I peptides",
+            "CometAdapter": {
+                "instrument": "high_res",
+                "digest_mass_range": "800:2500",
+                "activation_method": "HCD",
+                "precursor_charge": "2:3",
+                "precursor_error_units": "ppm",
+                "max_variable_mods_in_peptide": 3,
+                "precursor_mass_tolerance": 5.0,
+                "fragment_mass_tolerance": 0.02,
+                "fragment_bin_offset": 0.0,
+                "enzyme": "unspecific cleavage"
+            }
+        },
+        "Q Exactive Orbitrap Class II": {
+            "_description": "Thermo Q Exactive for MHC Class II peptides",
+            "CometAdapter": {
+                "instrument": "high_res",
+                "digest_mass_range": "800:5000",
+                "activation_method": "HCD",
+                "precursor_charge": "2:5",
+                "precursor_error_units": "ppm",
+                "max_variable_mods_in_peptide": 5,
+                "precursor_mass_tolerance": 5.0,
+                "fragment_mass_tolerance": 0.02,
+                "fragment_bin_offset": 0.0,
+                "enzyme": "unspecific cleavage"
+            }
+        },
+        "LTQ Orbitrap XL Class I": {
+            "_description": "Thermo LTQ Orbitrap XL (low-res) for MHC Class I peptides",
+            "CometAdapter": {
+                "instrument": "low_res",
+                "digest_mass_range": "800:2500",
+                "activation_method": "CID",
+                "precursor_charge": "2:3",
+                "precursor_error_units": "ppm",
+                "max_variable_mods_in_peptide": 3,
+                "precursor_mass_tolerance": 5.0,
+                "fragment_mass_tolerance": 0.50025,
+                "fragment_bin_offset": 0.4,
+                "enzyme": "unspecific cleavage"
+            }
+        },
+        "LTQ Orbitrap XL Class II": {
+            "_description": "Thermo LTQ Orbitrap XL (low-res) for MHC Class II peptides",
+            "CometAdapter": {
+                "instrument": "low_res",
+                "digest_mass_range": "800:5000",
+                "activation_method": "CID",
+                "precursor_charge": "2:5",
+                "precursor_error_units": "ppm",
+                "max_variable_mods_in_peptide": 5,
+                "precursor_mass_tolerance": 5.0,
+                "fragment_mass_tolerance": 0.50025,
+                "fragment_bin_offset": 0.4,
+                "enzyme": "unspecific cleavage"
             }
         }
     }

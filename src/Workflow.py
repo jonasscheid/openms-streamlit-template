@@ -1,4 +1,3 @@
-import json
 import streamlit as st
 from src.workflow.WorkflowManager import WorkflowManager
 
@@ -51,31 +50,6 @@ class Workflow(WorkflowManager):
             ["**Search Parameters**", "**Filter Parameters**"]
         )
         with t[0]:
-            # Load Presets
-            presets_path = Path("src", "assets", "comet_presets.json")
-            with open(presets_path, "r") as f:
-                presets = json.load(f)
-            
-            st.markdown("##### Load Presets")
-            cols = st.columns(len(presets))
-            for i, (name, params) in enumerate(presets.items()):
-                if cols[i].button(name, use_container_width=True):
-                    # Update params
-                    if "CometAdapter" not in self.params:
-                        self.params["CometAdapter"] = {}
-                    
-                    tool_prefix = f"{self.parameter_manager.topp_param_prefix}CometAdapter:1:"
-                    
-                    for k, v in params.items():
-                        # Update self.params
-                        self.params["CometAdapter"][k] = v
-                        # Update st.session_state
-                        full_key = f"{tool_prefix}{k}"
-                        st.session_state[full_key] = v
-                        
-                    self.parameter_manager.save_parameters()
-                    st.rerun()
-
             # Parameters for CometAdapter
             self.ui.input_TOPP(
                 "CometAdapter",
