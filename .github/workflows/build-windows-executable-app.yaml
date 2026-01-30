@@ -213,18 +213,18 @@ jobs:
     
     - name: Setup python embeddable version
       run: |
-        # Create a directory for the embeddable Python version
-        mkdir python-${{ env.PYTHON_VERSION }}
-        
+        # Create a directory for the embeddable Python version (short name to avoid MAX_PATH issues)
+        mkdir py
+
         # Download and unzip the embeddable Python version
         curl -O https://www.python.org/ftp/python/${{ env.PYTHON_VERSION }}/python-${{ env.PYTHON_VERSION }}-embed-amd64.zip
-        unzip python-${{ env.PYTHON_VERSION }}-embed-amd64.zip -d python-${{ env.PYTHON_VERSION }}
+        unzip python-${{ env.PYTHON_VERSION }}-embed-amd64.zip -d py
         rm python-${{ env.PYTHON_VERSION }}-embed-amd64.zip
 
         # Define paths for the regular Python distribution and the embeddable distribution
         $PYTHON_DIR="${{ runner.tool_cache }}/Python/${{ env.PYTHON_VERSION }}/x64" # Path from actions/setup-python
-        $EMBED_DIR="python-${{ env.PYTHON_VERSION }}"
-        
+        $EMBED_DIR="py"
+
         mkdir -p $EMBED_DIR/Lib/site-packages/tkinter
         mkdir -p $EMBED_DIR/tcl
 
@@ -237,7 +237,7 @@ jobs:
 
     - name: Uncomment 'import site' in python311._pth file
       run: |
-        sed -i 's/#import site/import site/' python-${{ env.PYTHON_VERSION }}/python311._pth
+        sed -i 's/#import site/import site/' py/python311._pth
 
     - name: Replace polars with polars-lts-cpu in requirements.txt
       shell: pwsh
@@ -259,7 +259,7 @@ jobs:
 
     - name: Install Required Packages
       run: |
-        python -m pip install -r requirements.txt --target python-${{ env.PYTHON_VERSION }}/Lib/site-packages --upgrade --no-warn-script-location
+        python -m pip install -r requirements.txt --target py/Lib/site-packages --upgrade --no-warn-script-location
 
     - name: Set to offline deployment
       run: |
@@ -286,13 +286,13 @@ jobs:
         echo 'REM Create credentials.toml with empty email to disable email prompt' >> ${{ env.APP_NAME }}.bat
         echo 'copy /Y ".streamlit\credentials.toml" "%USERPROFILE%\.streamlit\credentials.toml" > nul' >> ${{ env.APP_NAME }}.bat
         echo '' >> ${{ env.APP_NAME }}.bat
-        echo 'start /min .\python-${{ env.PYTHON_VERSION }}\python -m streamlit run app.py local' >> ${{ env.APP_NAME }}.bat
+        echo 'start /min .\py\python -m streamlit run app.py local' >> ${{ env.APP_NAME }}.bat
 
     - name: Create All-in-one executable folder
       run: |
         mkdir streamlit_exe
 
-        mv python-${{ env.PYTHON_VERSION }} streamlit_exe
+        mv py streamlit_exe
         cp -r src streamlit_exe
         cp -r utils streamlit_exe
         cp -r content streamlit_exe
@@ -395,6 +395,7 @@ jobs:
               <ComponentRef Id="CreateAppFolder" />
               <ComponentRef Id="DesktopShortcutComponent" />
               <ComponentRef Id="InstallDirShortcutComponent" />
+              <ComponentRef Id="EnableLongPaths" />
             </Feature>
         
             <!-- Create shortcut for running app on desktop -->
@@ -408,7 +409,12 @@ jobs:
               <Shortcut Id="InstallDirShortcut" Name="${{ env.APP_NAME }}" Description="Launch ${{ env.APP_NAME }}" Target="[AppSubFolder]${{ env.APP_NAME }}.bat" WorkingDirectory="AppSubFolder" Icon="AppIcon" />
               <RegistryValue Root="HKCU" Key="Software\\OpenMS\\${{ env.APP_NAME }}" Name="InstallFolderShortcut" Type="integer" Value="1" KeyPath="yes" />
             </Component>
-        
+
+            <!-- Enable Windows Long Path support -->
+            <Component Id="EnableLongPaths" Guid="a1b2c3d4-e5f6-7890-abcd-ef1234567890" Directory="INSTALLFOLDER">
+              <RegistryValue Root="HKLM" Key="SYSTEM\\CurrentControlSet\\Control\\FileSystem" Name="LongPathsEnabled" Type="integer" Value="1" KeyPath="yes" />
+            </Component>
+
             <!-- Provide icon here; it should exist in the SourceDir folder -->
             <Icon Id="AppIcon" SourceFile="SourceDir/openms.ico" />
         
