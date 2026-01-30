@@ -259,7 +259,7 @@ jobs:
 
     - name: Install Required Packages
       run: |
-        .\python -m pip install -r requirements.txt --target python-${{ env.PYTHON_VERSION }}/Lib/site-packages --upgrade --no-warn-script-location
+        python -m pip install -r requirements.txt --target python-${{ env.PYTHON_VERSION }}/Lib/site-packages --upgrade --no-warn-script-location
 
     - name: Set to offline deployment
       run: |
@@ -305,6 +305,7 @@ jobs:
         cp app.py streamlit_exe
         cp settings.json streamlit_exe
         cp default-parameters.json streamlit_exe
+        cp presets.json streamlit_exe
         cp ${{ env.APP_NAME }}.bat streamlit_exe
 
         $files = $env:TOPP_TOOLS -split ' '
