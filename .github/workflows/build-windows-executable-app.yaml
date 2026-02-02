@@ -276,6 +276,21 @@ jobs:
         $count = (Get-ChildItem -Path $sitePkgs -Recurse -File).Count
         Write-Host "Remaining files in site-packages: $count"
 
+    - name: Clean up unnecessary Python files
+      shell: pwsh
+      run: |
+        $sitePkgs = "py/Lib/site-packages"
+
+        # Remove __pycache__ directories
+        Get-ChildItem -Path $sitePkgs -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force
+
+        # Remove test directories
+        Get-ChildItem -Path $sitePkgs -Recurse -Directory | Where-Object { $_.Name -match "^tests?$" } | Remove-Item -Recurse -Force
+
+        # Count remaining files
+        $count = (Get-ChildItem -Path $sitePkgs -Recurse -File).Count
+        Write-Host "Remaining files in site-packages: $count"
+
     - name: Set to offline deployment
       run: |
         $content = Get-Content -Raw settings.json | ConvertFrom-Json
