@@ -137,7 +137,7 @@ urllib3==2.3.0
 watchdog==6.0.0
     # via streamlit
 xlsxwriter
-openms-insight>=0.1.10
+openms-insight>=0.1.11
 polars>=1.0.0
 ms2rescore>=3.1.0
 
