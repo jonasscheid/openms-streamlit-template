@@ -299,6 +299,8 @@ class StreamlitUI:
                 ) as f:
                     json.dump(self.params, f, indent=4)
                 st.rerun()
+            if c1.button(f"⬇️ Download **{name}**", use_container_width=True, key=f"download-{key}"):
+                self.download_files(files_dir)
         elif not fallback:
             st.warning(f"No **{name}** files!")
 
@@ -1060,6 +1062,34 @@ class StreamlitUI:
             use_container_width=True,
         )
 
+    def download_files(self, directory: Path) -> None:
+        """
+        Downloads files from a directory. Single file downloads directly,
+        multiple files get zipped.
+        """
+        directory = Path(directory)
+        files = [f for f in directory.rglob("*") if f.is_file() and f.name != "external_files.txt"]
+
+        if not files:
+            st.error("No files to download.")
+            return
+
+        c1, _ = st.columns(2)
+        if len(files) == 1:
+            # Single file - download directly
+            file_path = files[0]
+            with open(file_path, "rb") as f:
+                c1.download_button(
+                    label="⬇️ Download Now",
+                    data=f,
+                    file_name=file_path.name,
+                    mime="application/octet-stream",
+                    use_container_width=True,
+                )
+        else:
+            # Multiple files - zip them
+            self.zip_and_download_files(directory)
+
     def preset_buttons(self, num_cols: int = 4) -> None:
         """
         Renders a grid of preset buttons for the current workflow.
@@ -1101,9 +1131,6 @@ class StreamlitUI:
 
     def file_upload_section(self, custom_upload_function) -> None:
         custom_upload_function()
-        c1, _ = st.columns(2)
-        if c1.button("⬇️ Download files", use_container_width=True):
-            self.zip_and_download_files(Path(self.workflow_dir, "input-files"))
 
     def parameter_section(self, custom_parameter_function) -> None:
         st.toggle("Show advanced parameters", value=False, key="advanced")
