@@ -1079,13 +1079,14 @@ class StreamlitUI:
             # Single file - download directly
             file_path = files[0]
             with open(file_path, "rb") as f:
-                c1.download_button(
-                    label="⬇️ Download Now",
-                    data=f,
-                    file_name=file_path.name,
-                    mime="application/octet-stream",
-                    use_container_width=True,
-                )
+                file_data = f.read()
+            c1.download_button(
+                label="⬇️ Download Now",
+                data=file_data,
+                file_name=file_path.name,
+                mime="application/octet-stream",
+                use_container_width=True,
+            )
         else:
             # Multiple files - zip them
             self.zip_and_download_files(directory)
