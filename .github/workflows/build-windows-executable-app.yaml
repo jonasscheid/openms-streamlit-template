@@ -279,7 +279,7 @@ jobs:
     - name: Clean up unnecessary Python files
       shell: pwsh
       run: |
-        $sitePkgs = "py/Lib/site-packages"
+        $sitePkgs = "python-${{ env.PYTHON_VERSION }}/Lib/site-packages"
 
         # Remove __pycache__ directories
         Get-ChildItem -Path $sitePkgs -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force
@@ -342,6 +342,10 @@ jobs:
         foreach ($file in $files) {
           Copy-Item "openms-bin/${file}.exe" -Destination "streamlit_exe/${file}.exe"
         }
+
+    - name: Remove server address for local Windows deployment
+      run: |
+        (Get-Content streamlit_exe/.streamlit/config.toml) -notmatch '^address' | Set-Content streamlit_exe/.streamlit/config.toml
 
     - name: Generate Readme.txt
       shell: bash
