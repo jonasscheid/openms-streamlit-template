@@ -66,6 +66,16 @@ TOPP_FLAGS = {
     "TextExporter": ["id:peptides_only"],
 }
 
+# nf-core/mhcquant hidden quantification parameters (key, default, label)
+QUANT_ADVANCED = [
+    ("quantification-min-prob", 0.0, "Minimum SVM probability"),
+    ("quantification-mz-window", 5.0, "Extraction m/z window (ppm)"),
+    ("quantification-rt-window", 0.0, "Extraction RT window (s)"),
+    ("quantification-mapping-tolerance", 0.0, "ID mapping RT tolerance"),
+    ("quantification-peak-width", 60.0, "Expected peak width (s)"),
+    ("quantification-min-peak-width", 0.2, "Minimum peak width"),
+]
+
 SUMMARY_COLUMNS = ",".join([
     "peptidoform", "sequence", "score", "score_type", "psm", "rt", "mz", "charge",
     "accessions", "aa_before", "aa_after", "start", "end",
@@ -121,7 +131,8 @@ class Workflow(WorkflowManager):
 
         # Create tabs for different analysis steps.
         t = st.tabs(
-            ["**Search Parameters**", "**Rescoring**", "**Filter Parameters**", "**Preprocessing**"]
+            ["**Search Parameters**", "**Rescoring**", "**Filter Parameters**", "**Preprocessing**",
+             "**Quantification**"]
         )
         with t[0]:
             self.ui.input_widget(
@@ -163,6 +174,22 @@ class Workflow(WorkflowManager):
                 "filter-mzml", False, "Clean up mzML files (FileFilter)", widget_type="checkbox",
                 help="Removes MS2 spectra without precursor charge (FileFilter -peak_options:rm_pc_charge 0).",
             )
+        with t[4]:
+            self.ui.input_widget(
+                "quantify", False, "Quantify peptides", widget_type="checkbox",
+                help="Label-free quantification of the identified peptides across the selected runs.",
+            )
+            self.ui.input_widget(
+                "max-rt-alignment-shift", 300.0, "Maximum RT alignment shift (s)", widget_type="number", min_value=0.0,
+                help="Maximum realistic retention time difference of a peptide between runs.",
+            )
+            if st.session_state.get("advanced"):
+                for key, default, name in QUANT_ADVANCED:
+                    self.ui.input_widget(key, default, name, widget_type="number", min_value=0.0)
+                self.ui.input_widget(
+                    "quantification-fdr", False, "Quantification FDR (SVM)", widget_type="checkbox",
+                    help="Use the run's own IDs as targets and the other runs' IDs as external, scored by an SVM.",
+                )
 
     def _input_topp_curated(self, tool: str, shown: list, advanced: list = (), **kwargs) -> None:
         """input_TOPP limited to `shown` (+ `advanced` behind the toggle); all other parameters stay hidden."""
@@ -204,6 +231,117 @@ class Workflow(WorkflowManager):
             if not link.exists():
                 link.symlink_to(Path(mzml).resolve())
         return spectra_dir
+
+    def _last_command_failed_with(self, exit_code: int) -> bool:
+        log = Path(self.workflow_dir, "logs", "minimal.log").read_text(encoding="utf-8")
+        failures = [line for line in log.splitlines() if line.startswith("ERROR: Command failed with exit code")]
+        return bool(failures) and failures[-1].startswith(f"ERROR: Command failed with exit code {exit_code}:")
+
+    def _quantify(self, mzml: list, percolator_idxml: str, fdr_filtered_idxml: str):
+        """mhcquant 3.3.0 QUANT subworkflow; returns the consensusXML, None if RT alignment failed, False on error."""
+        results_dir = Path(self.workflow_dir, "results")
+        workspace_name = Path(self.workflow_dir).parent.name
+
+        self.logger.log("Splitting rescored identifications by run...")
+        ripped_dir = results_dir / "quant_runs"
+        ripped_dir.mkdir(parents=True, exist_ok=True)
+        if not self.executor.run_topp("IDRipper", input_output={"in": [percolator_idxml], "out": [str(ripped_dir)]}):
+            return False
+        runs = [str(ripped_dir / f"{Path(m).stem}.idXML") for m in mzml]
+        missing = [r for r in runs if not Path(r).exists()]
+        if missing:
+            self.logger.log(f"ERROR: IDRipper did not write {missing}.")
+            return False
+
+        # Peptide-level q-values are shared by all spectra of a peptide; pick spectra by xcorr instead
+        if self.params.get("fdr-level", "peptide_level_fdrs") == "peptide_level_fdrs":
+            switched = self.file_manager.get_files(runs, set_results_dir="quant_score_switched")
+            if not self.executor.run_topp(
+                "IDScoreSwitcher",
+                input_output={"in": runs, "out": switched},
+                custom_params={"new_score": "COMET:xcorr", "new_score_orientation": "higher_better", "old_score": "q-value"},
+            ):
+                return False
+            runs = switched
+
+        filtered = self.file_manager.get_files(runs, set_results_dir="quant_fdr_filtered")
+        if not self.executor.run_topp(
+            "IDFilter",
+            input_output={"in": runs, "out": filtered, "whitelist:peptides": [fdr_filtered_idxml]},
+            custom_params={"best:spectrum_per_peptide": "sequence+charge+modification"},
+            tool_instance_name="IDFilterQuant",
+        ):
+            return False
+
+        self.logger.log("Aligning retention times...")
+        trafos = self.file_manager.get_files(filtered, set_file_type="trafoXML", set_results_dir="alignment")
+        if not self.executor.run_topp(
+            "MapAlignerIdentification",
+            input_output={"in": [filtered], "trafo_out": [trafos]},
+            custom_params={"model:type": "linear", "algorithm:max_rt_shift": float(self.params.get("max-rt-alignment-shift", 300.0))},
+        ):
+            # Exit code 8: a run shares no RT landmarks with the others ("no data points for 'linear' model")
+            if not self._last_command_failed_with(8):
+                return False
+            message = (
+                "RT alignment failed: at least one run has no peptide IDs in common with the other runs within "
+                "the maximum RT alignment shift. Quantification was skipped; only identifications are reported."
+            )
+            self.logger.log(f"WARNING: {message}")
+            (results_dir / "quantification_skipped.txt").write_text(message)
+            return None
+
+        aligned_mzml = self.file_manager.get_files(mzml, set_results_dir="aligned_mzml")
+        aligned_ids = self.file_manager.get_files(filtered, set_results_dir="aligned_idxml")
+        for in_files, out_files in ((mzml, aligned_mzml), (filtered, aligned_ids)):
+            if not self.executor.run_topp(
+                "MapRTTransformer", input_output={"in": in_files, "trafo_in": trafos, "out": out_files}
+            ):
+                return False
+
+        merged_ids = self.file_manager.get_files("aligned_merged.idXML", set_results_dir="aligned_idxml")
+        if not self.executor.run_topp(
+            "IDMerger",
+            input_output={"in": [aligned_ids], "out": merged_ids},
+            custom_params={"annotate_file_origin": "true", "merge_proteins_add_PSMs": True},
+        ):
+            return False
+
+        self.logger.log("Extracting peptide features...")
+        features = self.file_manager.get_files(aligned_mzml, set_file_type="featureXML", set_results_dir="features")
+        ffid_params = {
+            "extract:mz_window": float(self.params.get("quantification-mz-window", 5.0)),
+            "extract:rt_window": float(self.params.get("quantification-rt-window", 0.0)),
+            "detect:mapping_tolerance": float(self.params.get("quantification-mapping-tolerance", 0.0)),
+            "detect:peak_width": float(self.params.get("quantification-peak-width", 60.0)),
+            "detect:min_peak_width": float(self.params.get("quantification-min-peak-width", 0.2)),
+            # OpenMS 3.5.0 drops all peptide identifications from features when merging FAIMS CV groups
+            "faims:merge_features": "false",
+        }
+        # With quantification FDR the run's own IDs are targets and the merged IDs external
+        if self.params.get("quantification-fdr", False):
+            ffid_io = {"in": aligned_mzml, "id": aligned_ids, "out": features, "id_ext": merged_ids}
+            ffid_params["svm:min_prob"] = float(self.params.get("quantification-min-prob", 0.0))
+        else:
+            ffid_io = {"in": aligned_mzml, "out": features, "id": merged_ids}
+        if not self.executor.run_topp("FeatureFinderIdentification", input_output=ffid_io, custom_params=ffid_params):
+            return False
+
+        consensus = self.file_manager.get_files(f"{workspace_name}_linked.consensusXML", set_results_dir="consensus")
+        if len(features) > 1:
+            linked = self.executor.run_topp("FeatureLinkerUnlabeledKD", input_output={"in": [features], "out": consensus})
+        else:
+            linked = self.executor.run_topp("FileConverter", input_output={"in": features, "out": consensus})
+        if not linked:
+            return False
+
+        resolved = self.file_manager.get_files(f"{workspace_name}.consensusXML", set_results_dir="quantification")
+        if not self.executor.run_topp("IDConflictResolver", input_output={"in": consensus, "out": resolved}):
+            return False
+        mztab = self.file_manager.get_files(resolved, set_file_type="mzTab", set_results_dir="quantification")
+        if not self.executor.run_topp("MzTabExporter", input_output={"in": resolved, "out": mztab}):
+            return False
+        return resolved[0]
 
     def execution(self) -> bool:
         self.params = self.parameter_manager.get_parameters_from_json()
@@ -388,14 +526,26 @@ class Workflow(WorkflowManager):
         ):
             return False
 
-        # 11. mhcquant TSV export
+        id_df, filename_to_index = parse_idxml(out_filtered[0])
+        quantify = self.params.get("quantify", False)
+
+        # 11. Optional quantification
+        export_input = out_filtered
+        if quantify and id_df.height > 0:
+            consensus = self._quantify(mzml, out_percolator[0], out_filtered[0])
+            if consensus is False:
+                return False
+            if consensus is not None:
+                export_input = [consensus]
+
+        # 12. mhcquant TSV export
         self.logger.log("Exporting identifications...")
         out_text = self.file_manager.get_files(
-            out_filtered, set_file_type="tsv", set_results_dir="text_exporter"
+            export_input, set_file_type="tsv", set_results_dir="text_exporter"
         )
         if not self.executor.run_topp(
             "TextExporter",
-            input_output={"in": out_filtered, "out": out_text},
+            input_output={"in": export_input, "out": out_text},
             custom_params={"id:peptides_only": True, "id:add_hit_metavalues": 0, "id:add_metavalues": 0},
         ):
             return False
@@ -406,14 +556,11 @@ class Workflow(WorkflowManager):
             "--input", out_text[0],
             "--out_prefix", str(tsv_dir / Path(self.workflow_dir).parent.name),
             "--columns", SUMMARY_COLUMNS,
-        ]):
+        ] + (["--quantify"] if quantify else [])):
             return False
 
         # Postprocessing
         self.logger.log("Postprocessing...")
-
-        # Parse idXML file
-        id_df, filename_to_index = parse_idxml(out_filtered[0])
         if id_df.height == 0:
             self.logger.log(
                 "WARNING: No peptides passed FDR filtering; an empty TSV was written. "
@@ -515,6 +662,16 @@ class Workflow(WorkflowManager):
                 file_name=tsv_files[0].name,
                 mime="text/tab-separated-values",
             )
+        for quant_file in sorted((results_dir / 'quantification').glob('*')):
+            st.download_button(
+                f"⬇️ Download quantification ({quant_file.suffix.lstrip('.')})",
+                data=quant_file.read_bytes(),
+                file_name=quant_file.name,
+                key=f"download-{quant_file.name}",
+            )
+        skipped = results_dir / 'quantification_skipped.txt'
+        if skipped.exists():
+            st.warning(skipped.read_text())
 
         # Check if workflow has been run
         if not (cache_dir / 'id_table').is_dir():

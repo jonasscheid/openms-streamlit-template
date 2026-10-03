@@ -479,3 +479,50 @@ def test_tool_failure_propagates(tmp_path, monkeypatch, failing_step):
         f"got {result!r}."
     )
     assert failing_step not in [c.args[0] for c in executor.run_topp.call_args_list][:-1]
+
+
+MHCQUANT_QUANT_STEPS = [
+    "IDRipper", "IDScoreSwitcher", "IDFilter", "MapAlignerIdentification", "MapRTTransformer",
+    "MapRTTransformer", "IDMerger", "FeatureFinderIdentification", "FeatureLinkerUnlabeledKD",
+    "IDConflictResolver", "MzTabExporter",
+]
+
+
+def _prepare_quant_workflow(tmp_path, monkeypatch, failing_step=None):
+    workflow_dir = _prepare_workflow_dir(tmp_path, "topp-workflow")
+    executor = _make_mhcquant_executor(failing_step)
+    params = dict(MHCQUANT_PARAMS, quantify=True)
+    workflow = _make_mhcquant_workflow(workflow_dir, params, executor, monkeypatch)
+    Path(workflow_dir, "logs").mkdir(parents=True, exist_ok=True)
+    Path(workflow_dir, "logs", "minimal.log").touch()
+    ripped = Path(workflow_dir, "results", "quant_runs")
+    ripped.mkdir(parents=True)
+    for run in ("a", "b"):
+        Path(ripped, f"{run}.idXML").touch()
+    return workflow, executor
+
+
+def test_quantification_runs_mhcquant_quant_steps(tmp_path, monkeypatch):
+    workflow, executor = _prepare_quant_workflow(tmp_path, monkeypatch)
+
+    consensus = workflow._quantify(["a.mzML", "b.mzML"], "pout.idXML", "filtered.idXML")
+
+    assert consensus.endswith(".consensusXML")
+    assert [c.args[0] for c in executor.run_topp.call_args_list] == MHCQUANT_QUANT_STEPS
+
+
+def test_quantification_skipped_when_alignment_has_no_landmarks(tmp_path, monkeypatch):
+    workflow, executor = _prepare_quant_workflow(tmp_path, monkeypatch, "MapAlignerIdentification")
+    with open(Path(workflow.workflow_dir, "logs", "minimal.log"), "a") as log:
+        log.write("ERROR: Command failed with exit code 8: MapAlignerIdentification\n")
+
+    assert workflow._quantify(["a.mzML", "b.mzML"], "pout.idXML", "filtered.idXML") is None
+    assert Path(workflow.workflow_dir, "results", "quantification_skipped.txt").exists()
+
+
+def test_quantification_fails_on_other_alignment_errors(tmp_path, monkeypatch):
+    workflow, executor = _prepare_quant_workflow(tmp_path, monkeypatch, "MapAlignerIdentification")
+    with open(Path(workflow.workflow_dir, "logs", "minimal.log"), "a") as log:
+        log.write("ERROR: Command failed with exit code 6: MapAlignerIdentification\n")
+
+    assert workflow._quantify(["a.mzML", "b.mzML"], "pout.idXML", "filtered.idXML") is False
