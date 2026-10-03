@@ -4,6 +4,11 @@ gatherUsageStats = false
 [global]
 developmentMode = false
 
+[secrets]
+# Kubernetes mounts the optional `streamlit-secrets` Secret at /app/admin-secrets/;
+# the default locations are kept so local `streamlit run` picks up ./.streamlit/secrets.toml.
+files = ["/app/admin-secrets/secrets.toml", "~/.streamlit/secrets.toml", ".streamlit/secrets.toml"]
+
 [server]
 maxUploadSize = 10000 #MB (10GB)
 address = "0.0.0.0"
