@@ -111,6 +111,11 @@ RUN mkdir openms
 RUN cp -r openms-build/bin /openms/bin
 ENV PATH="/openms/bin/:${PATH}"
 
+# Comet and Percolator as in nf-core/mhcquant 3.3.0 (bioconda openms-thirdparty 3.5.0); THIRDPARTY ships other versions
+RUN mamba create -y -p /search-engines -c conda-forge -c bioconda comet-ms=2024011 percolator=3.7.1 && \
+    mkdir /search-engines-bin && ln -s /search-engines/bin/comet /search-engines/bin/comet.exe /search-engines/bin/percolator /search-engines-bin/
+ENV PATH="/search-engines-bin:${PATH}"
+
 # Copy TOPP tools bin directory, add to PATH.
 RUN cp -r openms-build/lib /openms/lib
 ENV LD_LIBRARY_PATH="/openms/lib/:${LD_LIBRARY_PATH}"
