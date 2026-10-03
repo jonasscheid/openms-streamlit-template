@@ -77,8 +77,8 @@ pillow==11.1.0
     #   streamlit
 plotly==5.22.0
     # via src (pyproject.toml)
-protobuf==6.32.0
-    # via streamlit
+protobuf==5.28.3
+    # via streamlit, tensorflow (tensorflow 2.18 needs <6)
 psutil==7.0.0
     # via src (pyproject.toml)
 pyarrow==19.0.1
@@ -139,7 +139,26 @@ watchdog==6.0.0
 xlsxwriter
 openms-insight>=0.1.13
 polars>=1.0.0
-ms2rescore>=3.1.0
+
+# MS²Rescore stack pinned to the nf-core/mhcquant 3.3.0 container (biocontainers/ms2rescore:3.1.5--pyhdfd78af_1).
+# ms2rescore==3.1.5 and im2deep==1.0.3 are installed with --no-deps (Dockerfile, ci.yml): their PyPI metadata
+# pins pyopenms<3.2 and numpy==1.26.0; the remaining dependencies are listed here.
+deeplc==3.1.9
+deeplcretrainer==1.0.2
+# ms2pip 4.1.1 = 4.1.0 + SQLAlchemy 2 support, which psm-utils 1.5 requires
+ms2pip==4.1.1
+mokapot==0.10.0
+ms2rescore-rs==0.4.2
+tensorflow==2.18.0
+keras==3.10.0
+cascade-config>=0.4.0
+customtkinter>=5,<6
+lxml>=4.5
+pyteomics>=4.7.2
+rich>=12
+tomli>=2
+# psm-utils 1.4.1 (container) cannot read idXML with pyopenms 3.5
+psm-utils==1.5.5
 
 # Redis Queue dependencies (for online mode)
 redis>=5.0.0

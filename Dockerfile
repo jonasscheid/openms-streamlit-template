@@ -55,7 +55,8 @@ RUN mamba --version
 RUN chmod o+x /root
 
 # Setup mamba environment.
-RUN mamba create -n streamlit-env python=3.10
+# Python 3.12 matches the nf-core/mhcquant ms2rescore container (deeplc 3.1.9 needs >=3.11)
+RUN mamba create -n streamlit-env python=3.12
 RUN echo "mamba activate streamlit-env" >> ~/.bashrc
 SHELL ["/bin/bash", "--rcfile", "~/.bashrc"]
 SHELL ["mamba", "run", "-n", "streamlit-env", "/bin/bash", "-c"]
@@ -100,6 +101,8 @@ RUN pip install dist/*.whl
 COPY requirements.txt ./requirements.txt 
 RUN grep -Ev '^pyopenms([=<>!~].*)?$' requirements.txt > requirements_cleaned.txt && mv requirements_cleaned.txt requirements.txt
 RUN pip install -r requirements.txt
+# PyPI metadata of ms2rescore 3.1.5 / im2deep 1.0.3 pins pyopenms<3.2 / numpy==1.26.0; their deps are in requirements.txt
+RUN pip install --no-deps ms2rescore==3.1.5 im2deep==1.0.3
 
 WORKDIR /
 RUN mkdir openms
