@@ -1,4 +1,3 @@
-import json
 import streamlit as st
 from src.workflow.WorkflowManager import WorkflowManager
 
@@ -8,9 +7,9 @@ import polars as pl
 
 from utils.parse_idxml import parse_idxml
 from utils.build_spectra_cache import build_spectra_cache
-from utils.split_idxml import split_idxml_by_file
+# from utils.split_idxml import split_idxml_by_file
 
-from src.integration import render_toppview_button, is_toppview_available
+# from src.integration import render_toppview_button, is_toppview_available
 
 from openms_insight import Table, LinePlot, SequenceView, StateManager
 
@@ -51,31 +50,6 @@ class Workflow(WorkflowManager):
             ["**Search Parameters**", "**Filter Parameters**"]
         )
         with t[0]:
-            # Load Presets
-            presets_path = Path("src", "assets", "comet_presets.json")
-            with open(presets_path, "r") as f:
-                presets = json.load(f)
-            
-            st.markdown("##### Load Presets")
-            cols = st.columns(len(presets))
-            for i, (name, params) in enumerate(presets.items()):
-                if cols[i].button(name, use_container_width=True):
-                    # Update params
-                    if "CometAdapter" not in self.params:
-                        self.params["CometAdapter"] = {}
-                    
-                    tool_prefix = f"{self.parameter_manager.topp_param_prefix}CometAdapter:1:"
-                    
-                    for k, v in params.items():
-                        # Update self.params
-                        self.params["CometAdapter"][k] = v
-                        # Update st.session_state
-                        full_key = f"{tool_prefix}{k}"
-                        st.session_state[full_key] = v
-                        
-                    self.parameter_manager.save_parameters()
-                    st.rerun()
-
             # Parameters for CometAdapter
             self.ui.input_TOPP(
                 "CometAdapter",
@@ -142,6 +116,7 @@ class Workflow(WorkflowManager):
         self.executor.run_topp(
             "CometAdapter",
             input_output={"in": in_mzML, "out": out_comet, "database": out_decoy_db},
+            custom_params={"threads": 10},
         )
 
         # 4. PeptideIndexer
@@ -174,76 +149,56 @@ class Workflow(WorkflowManager):
             }
         )
 
-        # # 5.5 MS2Rescore
-        # self.logger.log("Running ms2rescore...")
-        # in_idxml = out_merged[0]
-        # mzml_dir = str(Path(in_mzML[0]).parent)
-        
-        # # Prepare content for ms2rescore
-        # out_ms2rescore = self.file_manager.get_files(
-        #     "merged_ms2rescore.idXML", 
-        #     set_results_dir="ms2rescore", 
-        # )
-        # out_ms2rescore_path = out_ms2rescore[0]
-        
-        # # Determine output stem (remove .idXML extension for ms2rescore argument)
-        # out_stem = str(Path(out_ms2rescore_path).with_suffix(""))
-        
-        # # Calculate tolerance (default 0.02 -> 0.04)
-        # frag_tol = float(self.params.get("CometAdapter", {}).get("fragment_mass_tolerance", 0.02))
-        # ms2_tol = 2 * frag_tol
+        # 5.5 MS2Rescore
+        self.logger.log("Running ms2rescore...")
+        in_idxml = out_merged[0]
+        mzml_dir = str(Path(in_mzML[0]).parent)
 
-        # # Use the wrapper script in src/python-tools
-        # wrapper_script = Path("src", "python-tools", "ms2rescore_wrapper.py")
-        
-        # cmd = [
-        #     "python", str(wrapper_script),
-        #     "--psm_file", str(in_idxml),
-        #     "--spectrum_path", mzml_dir,
-        #     "--output_path", out_stem + ".idXML", # Wrapper writes to this file
-        #     "--processes", "1",
-        #     "--ms2_tolerance", str(ms2_tol),
-        #     "--ms2pip_model", "Immuno-HCD",
-        #     "--feature_generators", "deeplc,ms2pip",
-        #     "--rescoring_engine", "percolator"
-        # ]
-        
-        # self.executor.run_command(cmd)
+        # Output path for ms2rescore
+        out_ms2rescore = self.file_manager.get_files(
+            "merged_ms2rescore.idXML",
+            set_results_dir="ms2rescore",
+        )
 
-        # Parse feature names
-        # The wrapper doesn't explicitly write feature names to a separate file, 
-        # but ms2rescore library might. 
-        # If not, we might need to assume a name or extract from output idXML?
-        # mhcquant expects '*_feature_names.tsv'. 
-        # Let's hope ms2rescore writes it.
-        # feature_file = Path(out_stem + "_feature_names.tsv")
+        # Calculate tolerance from Comet params (2x fragment_mass_tolerance)
+        frag_tol = float(self.params.get("CometAdapter", {}).get("fragment_mass_tolerance", 0.02))
+        ms2_tol = 2 * frag_tol
+
+        # Run ms2rescore via CommandExecutor.run_python()
+        self.executor.run_python(
+            "ms2rescore_wrapper",
+            input_output={
+                "in": in_idxml,
+                "spectrum_path": mzml_dir,
+                "out": out_ms2rescore[0],
+                "processes": 8,
+                "ms2_tolerance": ms2_tol,
+            }
+        )
+
+        # Parse feature names from auto-generated TSV
+        feature_file = Path(out_ms2rescore[0]).with_suffix(".feature_names.tsv")
         extra_features = []
-        # if feature_file.exists():
-        #     with open(feature_file, "r") as f:
-        #         # mhcquant approach: feature names one per line or TSV?
-        #         # Check lines
-        #         lines = f.readlines()
-        #         for line in lines:
-        #             parts = line.strip().split("\t")
-        #             if len(parts) >= 2:
-        #                 # feature_generator (0), feature_name (1)
-        #                 if "psm_file" not in parts[0]: 
-        #                      extra_features.append(parts[1])
-        # else:
-        #     self.logger.log(f"Warning: Feature file {feature_file} not found. Proceeding without extra features.")
+        if feature_file.exists():
+            with open(feature_file, "r") as f:
+                for line in f:
+                    parts = line.strip().split("\t")
+                    if len(parts) >= 2 and "psm_file" not in parts[0]:
+                        extra_features.append(parts[1])
+            self.logger.log(f"Loaded {len(extra_features)} extra features from ms2rescore")
+        else:
+            self.logger.log(f"Warning: Feature file {feature_file} not found. Proceeding without extra features.")
 
         # 6. PSMFeatureExtractor
         self.logger.log("Running PSMFeatureExtractor...")
         out_psm = self.file_manager.get_files(
-            # out_ms2rescore, 
-            out_merged, 
-            set_file_type="idXML", 
-            set_results_dir="psm_feature_extractor", 
+            out_ms2rescore,
+            set_file_type="idXML",
+            set_results_dir="psm_feature_extractor",
         )
         self.executor.run_topp(
             "PSMFeatureExtractor",
-            # input_output={"in": out_ms2rescore, "out": out_psm},
-            input_output={"in": out_merged, "out": out_psm},
+            input_output={"in": out_ms2rescore, "out": out_psm},
             custom_params={
                 "extra": extra_features
             }
@@ -295,9 +250,14 @@ class Workflow(WorkflowManager):
         # Parse idXML file
         id_df, filename_to_index = parse_idxml(out_filtered[0])
 
-        # Build spectra cache from mzML files
+        # Extract required scans from identifications
+        required_scans = set(
+            zip(id_df["file_index"].to_list(), id_df["scan_id"].to_list())
+        )
+
+        # Build spectra cache from mzML files (only for required scans)
         spectra_df, filename_to_index = build_spectra_cache(
-            Path(in_mzML[0]).parent, filename_to_index
+            Path(in_mzML[0]).parent, filename_to_index, required_scans
         )
 
         # Create identification table component
@@ -314,7 +274,7 @@ class Workflow(WorkflowManager):
                 {"field": "protein_accession", "title": "Protein", "headerTooltip": True},
                 {"field": "filename", "title": "File"},
             ],
-            initial_sort=[{'column': 'score', 'dir': 'desc'}],
+            initial_sort=[{'column': 'score', 'dir': 'asc'}],
             index_field="id_idx",
             title="Identifications",
             default_row=0,
@@ -377,31 +337,31 @@ class Workflow(WorkflowManager):
             st.stop()
 
         # TOPPView-Lite integration button
-        if is_toppview_available():
-            # Get mzML paths from params
-            mzml_paths = [Path(p) for p in self.params.get("mzML-files", [])]
+        # if is_toppview_available():
+        #     # Get mzML paths from params
+        #     mzml_paths = [Path(p) for p in self.params.get("mzML-files", [])]
 
-            # Get merged idXML and split it
-            id_filter_dir = self.file_manager.workflow_dir / 'results' / 'id_filter'
-            merged_idxmls = list(id_filter_dir.glob("*.idXML")) if id_filter_dir.exists() else []
-            merged_idxml = merged_idxmls[0] if merged_idxmls else None
+        #     # Get merged idXML and split it
+        #     id_filter_dir = self.file_manager.workflow_dir / 'results' / 'id_filter'
+        #     merged_idxmls = list(id_filter_dir.glob("*.idXML")) if id_filter_dir.exists() else []
+        #     merged_idxml = merged_idxmls[0] if merged_idxmls else None
 
-            if merged_idxml and mzml_paths:
-                # Split idXML by source file (cached)
-                split_cache_dir = cache_dir / 'split_idxml'
-                split_mapping = split_idxml_by_file(merged_idxml, split_cache_dir)
+        #     if merged_idxml and mzml_paths:
+        #         # Split idXML by source file (cached)
+        #         split_cache_dir = cache_dir / 'split_idxml'
+        #         split_mapping = split_idxml_by_file(merged_idxml, split_cache_dir)
 
-                # Match idXML files to mzML files by stem
-                idxml_paths = [
-                    split_mapping[p.stem] for p in mzml_paths
-                    if p.stem in split_mapping
-                ]
+        #         # Match idXML files to mzML files by stem
+        #         idxml_paths = [
+        #             split_mapping[p.stem] for p in mzml_paths
+        #             if p.stem in split_mapping
+        #         ]
 
-                render_toppview_button(
-                    mzml_paths=mzml_paths,
-                    idxml_paths=idxml_paths,
-                    app_name="MHCquant",
-                )
+        #         render_toppview_button(
+        #             mzml_paths=mzml_paths,
+        #             idxml_paths=idxml_paths,
+        #             app_name="MHCquant",
+        #         )
 
         # Create StateManager for cross-component linking
         state_manager = StateManager(session_key="id_viewer_state")
@@ -413,6 +373,7 @@ class Workflow(WorkflowManager):
 
         # Display identification table
         st.subheader("Peptide Identifications")
+        st.info("Scores are q-values (FDR). Lower scores indicate more confident identifications.")
         id_table(key="id_table", state_manager=state_manager, height=400)
 
         sv_result = sequence_view(key="sequence_view", state_manager=state_manager, height=800)

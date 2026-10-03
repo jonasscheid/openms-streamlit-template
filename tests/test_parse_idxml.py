@@ -34,6 +34,21 @@ class TestParseSpectrumReference:
         native_id = "scan=12345"
         assert parse_spectrum_reference(native_id) == 12345
 
+    def test_index_format(self):
+        """Test parsing index= format."""
+        from utils.parse_idxml import parse_spectrum_reference
+
+        native_id = "index=4419"
+        assert parse_spectrum_reference(native_id) == 4419
+
+    def test_scan_takes_precedence_over_index(self):
+        """Test that scan= format takes precedence if both are present."""
+        from utils.parse_idxml import parse_spectrum_reference
+
+        # Unlikely scenario, but scan= should be checked first
+        native_id = "index=100 scan=200"
+        assert parse_spectrum_reference(native_id) == 200
+
     def test_no_scan_found(self):
         """Test handling when no scan number is found."""
         from utils.parse_idxml import parse_spectrum_reference
