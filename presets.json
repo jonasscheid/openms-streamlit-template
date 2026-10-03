@@ -1,123 +1,253 @@
 {
     "topp-workflow": {
-        "timsTOF Class I": {
-            "_description": "Bruker timsTOF Pro optimized for MHC Class I peptides (8-12 aa)",
+        "lumos_class1": {
+            "_description": "Orbitrap Fusion Lumos, MHC class I (8-14 aa), nf-core/mhcquant 3.3.0 preset",
             "CometAdapter": {
                 "instrument": "high_res",
+                "activation_method": "HCD",
                 "digest_mass_range": "800:2500",
+                "precursor_charge": "2:3",
+                "precursor_mass_tolerance": 5.0,
+                "precursor_error_units": "ppm",
+                "fragment_mass_tolerance": 0.01,
+                "fragment_bin_offset": 0.0,
+                "max_variable_mods_in_peptide": 3,
+                "fixed_modifications": [],
+                "variable_modifications": [
+                    "Oxidation (M)"
+                ]
+            },
+            "IDFilter": {
+                "precursor:length": "8:14"
+            },
+            "_general": {
+                "ms2rescore_wrapper.py:ms2pip_model": "Immuno-HCD",
+                "mhcquant-preset": "lumos_class1"
+            }
+        },
+        "lumos_class2": {
+            "_description": "Orbitrap Fusion Lumos, MHC class II (8-30 aa), nf-core/mhcquant 3.3.0 preset",
+            "CometAdapter": {
+                "instrument": "high_res",
+                "activation_method": "HCD",
+                "digest_mass_range": "800:5000",
+                "precursor_charge": "2:5",
+                "precursor_mass_tolerance": 5.0,
+                "precursor_error_units": "ppm",
+                "fragment_mass_tolerance": 0.01,
+                "fragment_bin_offset": 0.0,
+                "max_variable_mods_in_peptide": 5,
+                "fixed_modifications": [],
+                "variable_modifications": [
+                    "Oxidation (M)"
+                ]
+            },
+            "IDFilter": {
+                "precursor:length": "8:30"
+            },
+            "_general": {
+                "ms2rescore_wrapper.py:ms2pip_model": "Immuno-HCD",
+                "mhcquant-preset": "lumos_class2"
+            }
+        },
+        "qe_class1": {
+            "_description": "Q Exactive, MHC class I (8-14 aa), nf-core/mhcquant 3.3.0 preset",
+            "CometAdapter": {
+                "instrument": "high_res",
+                "activation_method": "HCD",
+                "digest_mass_range": "800:2500",
+                "precursor_charge": "2:3",
+                "precursor_mass_tolerance": 5.0,
+                "precursor_error_units": "ppm",
+                "fragment_mass_tolerance": 0.01,
+                "fragment_bin_offset": 0.0,
+                "max_variable_mods_in_peptide": 3,
+                "fixed_modifications": [],
+                "variable_modifications": [
+                    "Oxidation (M)"
+                ]
+            },
+            "IDFilter": {
+                "precursor:length": "8:14"
+            },
+            "_general": {
+                "ms2rescore_wrapper.py:ms2pip_model": "Immuno-HCD",
+                "mhcquant-preset": "qe_class1"
+            }
+        },
+        "qe_class2": {
+            "_description": "Q Exactive, MHC class II (8-30 aa), nf-core/mhcquant 3.3.0 preset",
+            "CometAdapter": {
+                "instrument": "high_res",
+                "activation_method": "HCD",
+                "digest_mass_range": "800:5000",
+                "precursor_charge": "2:5",
+                "precursor_mass_tolerance": 5.0,
+                "precursor_error_units": "ppm",
+                "fragment_mass_tolerance": 0.01,
+                "fragment_bin_offset": 0.0,
+                "max_variable_mods_in_peptide": 5,
+                "fixed_modifications": [],
+                "variable_modifications": [
+                    "Oxidation (M)"
+                ]
+            },
+            "IDFilter": {
+                "precursor:length": "8:30"
+            },
+            "_general": {
+                "ms2rescore_wrapper.py:ms2pip_model": "Immuno-HCD",
+                "mhcquant-preset": "qe_class2"
+            }
+        },
+        "timstof_class1": {
+            "_description": "timsTOF, MHC class I (8-14 aa), nf-core/mhcquant 3.3.0 preset",
+            "CometAdapter": {
+                "instrument": "high_res",
                 "activation_method": "CID",
+                "digest_mass_range": "800:2500",
                 "precursor_charge": "1:4",
-                "precursor_error_units": "ppm",
-                "max_variable_mods_in_peptide": 3,
                 "precursor_mass_tolerance": 20.0,
-                "fragment_mass_tolerance": 0.02,
+                "precursor_error_units": "ppm",
+                "fragment_mass_tolerance": 0.01,
                 "fragment_bin_offset": 0.0,
-                "enzyme": "unspecific cleavage"
+                "max_variable_mods_in_peptide": 3,
+                "fixed_modifications": [],
+                "variable_modifications": [
+                    "Oxidation (M)"
+                ]
+            },
+            "IDFilter": {
+                "precursor:length": "8:14"
+            },
+            "_general": {
+                "ms2rescore_wrapper.py:ms2pip_model": "timsTOF",
+                "mhcquant-preset": "timstof_class1"
             }
         },
-        "timsTOF Class II": {
-            "_description": "Bruker timsTOF Pro optimized for MHC Class II peptides (12-25 aa)",
+        "timstof_class2": {
+            "_description": "timsTOF, MHC class II (8-30 aa), nf-core/mhcquant 3.3.0 preset",
             "CometAdapter": {
                 "instrument": "high_res",
-                "digest_mass_range": "800:5000",
                 "activation_method": "CID",
+                "digest_mass_range": "800:5000",
                 "precursor_charge": "1:5",
-                "precursor_error_units": "ppm",
-                "max_variable_mods_in_peptide": 5,
                 "precursor_mass_tolerance": 20.0,
-                "fragment_mass_tolerance": 0.02,
-                "fragment_bin_offset": 0.0,
-                "enzyme": "unspecific cleavage"
-            }
-        },
-        "Orbitrap Fusion Lumos Class I": {
-            "_description": "Thermo Orbitrap Fusion Lumos for MHC Class I peptides",
-            "CometAdapter": {
-                "instrument": "high_res",
-                "digest_mass_range": "800:2500",
-                "activation_method": "HCD",
-                "precursor_charge": "2:3",
                 "precursor_error_units": "ppm",
-                "max_variable_mods_in_peptide": 3,
-                "precursor_mass_tolerance": 5.0,
-                "fragment_mass_tolerance": 0.02,
+                "fragment_mass_tolerance": 0.01,
                 "fragment_bin_offset": 0.0,
-                "enzyme": "unspecific cleavage"
-            }
-        },
-        "Orbitrap Fusion Lumos Class II": {
-            "_description": "Thermo Orbitrap Fusion Lumos for MHC Class II peptides",
-            "CometAdapter": {
-                "instrument": "high_res",
-                "digest_mass_range": "800:5000",
-                "activation_method": "HCD",
-                "precursor_charge": "2:5",
-                "precursor_error_units": "ppm",
                 "max_variable_mods_in_peptide": 5,
-                "precursor_mass_tolerance": 5.0,
-                "fragment_mass_tolerance": 0.02,
-                "fragment_bin_offset": 0.0,
-                "enzyme": "unspecific cleavage"
+                "fixed_modifications": [],
+                "variable_modifications": [
+                    "Oxidation (M)"
+                ]
+            },
+            "IDFilter": {
+                "precursor:length": "8:30"
+            },
+            "_general": {
+                "ms2rescore_wrapper.py:ms2pip_model": "timsTOF",
+                "mhcquant-preset": "timstof_class2"
             }
         },
-        "Q Exactive Orbitrap Class I": {
-            "_description": "Thermo Q Exactive for MHC Class I peptides",
+        "astral_class1": {
+            "_description": "Orbitrap Astral, MHC class I (8-14 aa), nf-core/mhcquant 3.3.0 preset",
             "CometAdapter": {
                 "instrument": "high_res",
+                "activation_method": "HCD",
                 "digest_mass_range": "800:2500",
-                "activation_method": "HCD",
                 "precursor_charge": "2:3",
-                "precursor_error_units": "ppm",
-                "max_variable_mods_in_peptide": 3,
                 "precursor_mass_tolerance": 5.0,
-                "fragment_mass_tolerance": 0.02,
+                "precursor_error_units": "ppm",
+                "fragment_mass_tolerance": 0.01,
                 "fragment_bin_offset": 0.0,
-                "enzyme": "unspecific cleavage"
+                "max_variable_mods_in_peptide": 3,
+                "fixed_modifications": [],
+                "variable_modifications": [
+                    "Oxidation (M)"
+                ]
+            },
+            "IDFilter": {
+                "precursor:length": "8:14"
+            },
+            "_general": {
+                "ms2rescore_wrapper.py:ms2pip_model": "Immuno-HCD",
+                "mhcquant-preset": "astral_class1"
             }
         },
-        "Q Exactive Orbitrap Class II": {
-            "_description": "Thermo Q Exactive for MHC Class II peptides",
+        "astral_class2": {
+            "_description": "Orbitrap Astral, MHC class II (8-30 aa), nf-core/mhcquant 3.3.0 preset",
             "CometAdapter": {
                 "instrument": "high_res",
-                "digest_mass_range": "800:5000",
                 "activation_method": "HCD",
+                "digest_mass_range": "800:5000",
                 "precursor_charge": "2:5",
-                "precursor_error_units": "ppm",
-                "max_variable_mods_in_peptide": 5,
                 "precursor_mass_tolerance": 5.0,
-                "fragment_mass_tolerance": 0.02,
+                "precursor_error_units": "ppm",
+                "fragment_mass_tolerance": 0.01,
                 "fragment_bin_offset": 0.0,
-                "enzyme": "unspecific cleavage"
+                "max_variable_mods_in_peptide": 5,
+                "fixed_modifications": [],
+                "variable_modifications": [
+                    "Oxidation (M)"
+                ]
+            },
+            "IDFilter": {
+                "precursor:length": "8:30"
+            },
+            "_general": {
+                "ms2rescore_wrapper.py:ms2pip_model": "Immuno-HCD",
+                "mhcquant-preset": "astral_class2"
             }
         },
-        "LTQ Orbitrap XL Class I": {
-            "_description": "Thermo LTQ Orbitrap XL (low-res) for MHC Class I peptides",
+        "xl_class1": {
+            "_description": "LTQ Orbitrap XL, MHC class I (8-14 aa), nf-core/mhcquant 3.3.0 preset",
             "CometAdapter": {
                 "instrument": "low_res",
-                "digest_mass_range": "800:2500",
                 "activation_method": "CID",
+                "digest_mass_range": "800:2500",
                 "precursor_charge": "2:3",
-                "precursor_error_units": "ppm",
-                "max_variable_mods_in_peptide": 3,
                 "precursor_mass_tolerance": 5.0,
+                "precursor_error_units": "ppm",
                 "fragment_mass_tolerance": 0.50025,
                 "fragment_bin_offset": 0.4,
-                "enzyme": "unspecific cleavage"
+                "max_variable_mods_in_peptide": 3,
+                "fixed_modifications": [],
+                "variable_modifications": [
+                    "Oxidation (M)"
+                ]
+            },
+            "IDFilter": {
+                "precursor:length": "8:14"
+            },
+            "_general": {
+                "ms2rescore_wrapper.py:ms2pip_model": "CIDch2",
+                "mhcquant-preset": "xl_class1"
             }
         },
-        "LTQ Orbitrap XL Class II": {
-            "_description": "Thermo LTQ Orbitrap XL (low-res) for MHC Class II peptides",
+        "xl_class2": {
+            "_description": "LTQ Orbitrap XL, MHC class II (8-30 aa), nf-core/mhcquant 3.3.0 preset",
             "CometAdapter": {
                 "instrument": "low_res",
-                "digest_mass_range": "800:5000",
                 "activation_method": "CID",
+                "digest_mass_range": "800:5000",
                 "precursor_charge": "2:5",
-                "precursor_error_units": "ppm",
-                "max_variable_mods_in_peptide": 5,
                 "precursor_mass_tolerance": 5.0,
+                "precursor_error_units": "ppm",
                 "fragment_mass_tolerance": 0.50025,
                 "fragment_bin_offset": 0.4,
-                "enzyme": "unspecific cleavage"
+                "max_variable_mods_in_peptide": 5,
+                "fixed_modifications": [],
+                "variable_modifications": [
+                    "Oxidation (M)"
+                ]
+            },
+            "IDFilter": {
+                "precursor:length": "8:30"
+            },
+            "_general": {
+                "ms2rescore_wrapper.py:ms2pip_model": "CIDch2",
+                "mhcquant-preset": "xl_class2"
             }
         }
     }

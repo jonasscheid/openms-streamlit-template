@@ -48,24 +48,10 @@ def workflow_workspace(tmp_path):
         link_path.symlink_to(fasta_file)
         fasta_files.append(str(link_path))
 
-    # Create params.json with file paths
+    # Create params.json with file paths; everything else runs on the nf-core/mhcquant defaults
     params = {
         "mzML-files": mzml_files,
-        "fasta-file": fasta_files,
-        "CometAdapter": {
-            "precursor_mass_tolerance": 20.0,
-            "fragment_mass_tolerance": 0.02,
-            "enzyme": "unspecific cleavage",
-            "digest_mass_range": "800:5000",
-            "precursor_charge": "1:5",
-            "activation_method": "CID",
-            "fixed_modifications": "Carbamidomethyl (C)",
-            "variable_modifications": "Oxidation (M)",
-        },
-        "IDFilter": {
-            "score:peptide": 0.01,
-            "precursor:length": "8:12",
-        },
+        "fasta-file": fasta_files[0],
     }
 
     params_file = workflow_dir / "params.json"
@@ -139,6 +125,7 @@ def test_full_workflow_execution(workflow_workspace, mock_streamlit):
     assert (results_dir / "comet").exists(), "Comet search output missing"
     assert (results_dir / "peptide_indexer").exists(), "PeptideIndexer output missing"
     assert (results_dir / "id_merger").exists(), "IDMerger output missing"
+    assert (results_dir / "ms2rescore").exists(), "MS²Rescore output missing"
     assert (results_dir / "psm_feature_extractor").exists(), "PSMFeatureExtractor output missing"
     assert (results_dir / "percolator").exists(), "Percolator output missing"
     assert (results_dir / "id_filter").exists(), "IDFilter output missing"
@@ -146,6 +133,10 @@ def test_full_workflow_execution(workflow_workspace, mock_streamlit):
     # Verify final filtered idXML exists
     id_filter_files = list((results_dir / "id_filter").glob("*.idXML"))
     assert len(id_filter_files) > 0, "No filtered idXML files found"
+
+    # Verify the mhcquant TSV export
+    tsv_files = list((results_dir / "mhcquant_tsv").glob("*.tsv"))
+    assert len(tsv_files) == 1, "mhcquant TSV export missing"
 
     # Verify cache was created for viewer components
     cache_dir = results_dir / ".cache"

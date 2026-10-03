@@ -401,47 +401,56 @@ def test_failed_jobs_are_evicted_rather_than_kept_for_a_year(tmp_path, monkeypat
 
 # ============================ src.Workflow.Workflow ==========================
 
+MHCQUANT_PARAMS = {"mzML-files": ["a.mzML", "b.mzML"], "fasta-file": "db.fasta"}
+MHCQUANT_TOPP_STEPS = [
+    "DecoyDatabase", "CometAdapter", "PeptideIndexer", "IDMerger",
+    "PSMFeatureExtractor", "PercolatorAdapter", "IDFilter", "TextExporter",
+]
 
-def test_execution_returns_true_on_success(tmp_path):
-    """
-    The shipped example workflow must report success by returning True.
 
-    It is annotated -> None and returns nothing, so workflow_process() never
-    logs WORKFLOW FINISHED and a successful local run renders
-    "Errors occurred, check log file."
-    """
+def _make_mhcquant_workflow(workflow_dir, params, executor, monkeypatch):
+    """The MHCquant workflow with its result parsing stubbed; no TOPP output exists in these tests."""
+    import polars as pl
+
+    # Patch the globals execution() resolves names in; see the module import note above
+    workflow_globals = Workflow.execution.__globals__
+    monkeypatch.setitem(workflow_globals, "read_extra_features", lambda path: [])
+    monkeypatch.setitem(workflow_globals, "parse_idxml", lambda path: (pl.DataFrame(), {}))
+    workflow = _make_workflow(workflow_dir, params, executor)
+    workflow.parameter_manager.get_parameters_from_json.return_value = dict(params)
+    workflow.parameter_manager.get_merged_params.return_value = {}
+    return workflow
+
+
+def _make_mhcquant_executor(failing_step=None) -> MagicMock:
+    executor = MagicMock()
+    executor.run_topp.side_effect = lambda tool, *args, **kwargs: tool != failing_step
+    executor.run_python.side_effect = lambda script, *args, **kwargs: script != failing_step
+    executor.run_command.return_value = True
+    return executor
+
+
+def test_execution_returns_true_on_success(tmp_path, monkeypatch):
+    """execution() reports success by returning True once every step ran."""
     workflow_dir = _prepare_workflow_dir(tmp_path, "topp-workflow")
-    executor = _make_executor()
-    workflow = _make_workflow(
-        workflow_dir,
-        {"mzML-files": ["a.mzML", "b.mzML"], "run-python-script": False},
-        executor,
-    )
+    executor = _make_mhcquant_executor()
+    workflow = _make_mhcquant_workflow(workflow_dir, MHCQUANT_PARAMS, executor, monkeypatch)
 
     result = workflow.execution()
 
     assert result is True, (
         f"execution() must return True when every step succeeded; got {result!r}."
     )
-    # Proves the True did not come from an early exit: both TOPP steps and the
-    # consensus export actually ran.
-    assert [c.args[0] for c in executor.run_topp.call_args_list] == [
-        "FeatureFinderMetabo",
-        "FeatureLinkerUnlabeledKD",
-    ]
-    assert executor.run_python.call_count == 1
+    assert [c.args[0] for c in executor.run_topp.call_args_list] == MHCQUANT_TOPP_STEPS
+    assert [c.args[0] for c in executor.run_python.call_args_list] == ["ms2rescore_wrapper"]
 
 
-def test_execution_returns_false_on_missing_input(tmp_path):
-    """
-    "No mzML files selected" is the workflow's own parameter check. It logs an
-    ERROR and bails, but returns None, so the caller cannot tell it apart from
-    a completed run.
-    """
+def test_execution_returns_false_on_missing_input(tmp_path, monkeypatch):
+    """The input check logs an ERROR and returns False without running tools."""
     workflow_dir = _prepare_workflow_dir(tmp_path, "topp-workflow")
-    executor = _make_executor()
-    workflow = _make_workflow(
-        workflow_dir, {"mzML-files": [], "run-python-script": False}, executor
+    executor = _make_mhcquant_executor()
+    workflow = _make_mhcquant_workflow(
+        workflow_dir, {"mzML-files": [], "fasta-file": "db.fasta"}, executor, monkeypatch
     )
 
     result = workflow.execution()
@@ -454,27 +463,14 @@ def test_execution_returns_false_on_missing_input(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "topp_results, python_result",
-    [
-        ((False, True), True),
-        ((True, False), True),
-        ((True, True), False),
-    ],
-    ids=["feature-detection-fails", "feature-linking-fails", "python-export-fails"],
+    "failing_step",
+    ["DecoyDatabase", "CometAdapter", "ms2rescore_wrapper", "PercolatorAdapter", "IDFilter"],
 )
-def test_tool_failure_propagates(tmp_path, topp_results, python_result):
-    """
-    run_topp / run_python already return a bool. execution() discards every one
-    of them, so a tool that failed - a missing binary, a bad parameter, a
-    SIGKILLed process - is reported to the user as a completed workflow.
-    """
+def test_tool_failure_propagates(tmp_path, monkeypatch, failing_step):
+    """A failed executor call ends the workflow with False instead of a reported success."""
     workflow_dir = _prepare_workflow_dir(tmp_path, "topp-workflow")
-    executor = _make_executor(topp_results=topp_results, python_result=python_result)
-    workflow = _make_workflow(
-        workflow_dir,
-        {"mzML-files": ["a.mzML", "b.mzML"], "run-python-script": False},
-        executor,
-    )
+    executor = _make_mhcquant_executor(failing_step)
+    workflow = _make_mhcquant_workflow(workflow_dir, MHCQUANT_PARAMS, executor, monkeypatch)
 
     result = workflow.execution()
 
@@ -482,3 +478,4 @@ def test_tool_failure_propagates(tmp_path, topp_results, python_result):
         "execution() must return False as soon as an executor call fails; "
         f"got {result!r}."
     )
+    assert failing_step not in [c.args[0] for c in executor.run_topp.call_args_list][:-1]
