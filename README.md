@@ -12,6 +12,7 @@ Built on the [OpenMS WebApp Template](https://github.com/OpenMS/streamlit-templa
 
 - **Peptide Identification**: Database search with Comet search engine
 - **FDR Control**: Statistical validation with Percolator using target-decoy approach
+- **Quantification**: Label-free quantification across replicate runs (optional)
 - **Interactive Results Viewer**: Explore identifications with spectrum annotation and sequence coverage views
 - **Workspaces**: Persistent user sessions with shareable workspace IDs
 - **Preconfigured Presets**: Optimized parameters for different instrument types and fragmentation methods
@@ -65,7 +66,7 @@ The recommended way to run MHCquant with all dependencies:
 
 ## MHCquant Workflow
 
-The identification steps, defaults and presets follow [nf-core/mhcquant](https://nf-co.re/mhcquant) 3.3.0 for a single sample (all selected mzML files are treated as replicates):
+The identification and quantification steps, defaults and presets follow [nf-core/mhcquant](https://nf-co.re/mhcquant) 3.3.0 for a single sample (all selected mzML files are treated as replicates):
 
 1. **Preprocessing** (optional): Centroiding and mzML clean-up
 2. **Decoy Generation**: Create target-decoy database for FDR estimation
@@ -75,7 +76,8 @@ The identification steps, defaults and presets follow [nf-core/mhcquant](https:/
 6. **Feature Extraction**: Extract PSM features for rescoring
 7. **FDR Rescoring**: Peptide- or PSM-level FDR with Percolator
 8. **Filtering**: Apply FDR and peptide length filters
-9. **Export**: Identifications as mhcquant TSV
+9. **Quantification** (optional): RT alignment, targeted feature extraction and feature linking
+10. **Export**: Identifications (and intensities) as mhcquant TSV, plus mzTab and consensusXML with quantification
 
 ## Interactive Visualizations
 
