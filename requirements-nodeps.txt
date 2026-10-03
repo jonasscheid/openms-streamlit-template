@@ -1,0 +1,6 @@
+# Installed after requirements.txt with `pip install --no-deps -r requirements-nodeps.txt` to match the
+# nf-core/mhcquant 3.3.0 ms2rescore container, whose packages are newer than their PyPI metadata allows.
+ms2rescore==3.1.5
+im2deep==1.0.3
+# DeepLC picks its calibration PSMs with an unstable argsort, so its results depend on the numpy version
+numpy==2.2.6

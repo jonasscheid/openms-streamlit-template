@@ -38,7 +38,7 @@ Explore the hosted version: [Live App](https://openms.org/mhcquantweb)
 2. **Install Python dependencies**
    ```bash
    pip install -r requirements.txt
-   pip install --no-deps ms2rescore==3.1.5 im2deep==1.0.3
+   pip install --no-deps -r requirements-nodeps.txt
    ```
 
 3. **Launch the app**

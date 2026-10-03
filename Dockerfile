@@ -101,8 +101,8 @@ RUN pip install dist/*.whl
 COPY requirements.txt ./requirements.txt 
 RUN grep -Ev '^pyopenms([=<>!~].*)?$' requirements.txt > requirements_cleaned.txt && mv requirements_cleaned.txt requirements.txt
 RUN pip install -r requirements.txt
-# PyPI metadata of ms2rescore 3.1.5 / im2deep 1.0.3 pins pyopenms<3.2 / numpy==1.26.0; their deps are in requirements.txt
-RUN pip install --no-deps ms2rescore==3.1.5 im2deep==1.0.3
+COPY requirements-nodeps.txt ./requirements-nodeps.txt
+RUN pip install --no-deps -r requirements-nodeps.txt
 
 WORKDIR /
 RUN mkdir openms

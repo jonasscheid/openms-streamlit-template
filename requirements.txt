@@ -50,15 +50,6 @@ matplotlib==3.10.1
     # via pyopenms
 narwhals==2.5.0
     # via altair
-numpy==1.26.4
-    # via
-    #   contourpy
-    #   matplotlib
-    #   pandas
-    #   pydeck
-    #   pyopenms
-    #   src (pyproject.toml)
-    #   streamlit
 packaging==25.0
     # via
     #   altair
@@ -141,8 +132,7 @@ openms-insight>=0.1.13
 polars>=1.0.0
 
 # MS²Rescore stack pinned to the nf-core/mhcquant 3.3.0 container (biocontainers/ms2rescore:3.1.5--pyhdfd78af_1).
-# ms2rescore==3.1.5 and im2deep==1.0.3 are installed with --no-deps (Dockerfile, ci.yml): their PyPI metadata
-# pins pyopenms<3.2 and numpy==1.26.0; the remaining dependencies are listed here.
+# ms2rescore, im2deep and numpy are installed from requirements-nodeps.txt; their other dependencies are listed here.
 deeplc==3.1.9
 deeplcretrainer==1.0.2
 # ms2pip 4.1.1 = 4.1.0 + SQLAlchemy 2 support, which psm-utils 1.5 requires
