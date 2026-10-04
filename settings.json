@@ -4,6 +4,11 @@
     "version": "1.0.0",
     "repository-name": "mhcquant-app",
     "app_url": "http://localhost:8503",
+    "legal_links": {
+        "impressum": "https://openms.de/impressum",
+        "privacy": "https://openms.de/privacy",
+        "terms": "https://openms.de/terms"
+    },
     "analytics": {
         "google-analytics": {
             "enabled": false,
@@ -25,6 +30,7 @@
     "workspaces_dir": "..",
     "toppview_shared_exports": "/shared-exports",
     "toppview_lite_url": "https://abi-services.cs.uni-tuebingen.de/toppview-lite/",
+    "local_data_dir": "",
     "queue_settings": {
         "default_timeout": 7200,
         "result_ttl": 86400

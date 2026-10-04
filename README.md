@@ -24,7 +24,7 @@ Explore the hosted version: [Live App](https://openms.org/mhcquantweb)
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.12
 - [OpenMS TOPP tools](https://openms.readthedocs.io/en/latest/about/installation.html) (for full workflow functionality)
 
 ### Installation
@@ -38,6 +38,7 @@ Explore the hosted version: [Live App](https://openms.org/mhcquantweb)
 2. **Install Python dependencies**
    ```bash
    pip install -r requirements.txt
+   pip install --no-deps -r requirements-nodeps.txt
    ```
 
 3. **Launch the app**
@@ -64,14 +65,17 @@ The recommended way to run MHCquant with all dependencies:
 
 ## MHCquant Workflow
 
-The pipeline performs:
+The identification steps, defaults and presets follow [nf-core/mhcquant](https://nf-co.re/mhcquant) 3.3.0 for a single sample (all selected mzML files are treated as replicates):
 
-1. **Decoy Generation**: Create target-decoy database for FDR estimation
-2. **Database Search**: Peptide identification with Comet
-3. **Peptide Indexing**: Map peptides to protein sequences
-4. **Feature Extraction**: Extract PSM features for rescoring
-5. **FDR Rescoring**: Statistical validation with Percolator
-6. **Filtering**: Apply score and length filters
+1. **Preprocessing** (optional): Centroiding and mzML clean-up
+2. **Decoy Generation**: Create target-decoy database for FDR estimation
+3. **Database Search**: Peptide identification with Comet
+4. **Peptide Indexing**: Map peptides to protein sequences
+5. **Feature Generation**: DeepLC and MS²PIP features via MS²Rescore
+6. **Feature Extraction**: Extract PSM features for rescoring
+7. **FDR Rescoring**: Peptide- or PSM-level FDR with Percolator
+8. **Filtering**: Apply FDR and peptide length filters
+9. **Export**: Identifications as mhcquant TSV
 
 ## Interactive Visualizations
 
